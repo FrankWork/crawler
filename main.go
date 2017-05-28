@@ -6,10 +6,7 @@ import (
 	"net/url"
 )
 
-func main() {
-	fmt.Println("Hello World")
-
-	rawurl := "http://www.163.com:80/index?page=1#active"
+func urlparse(rawurl string) {
 	// scheme://[userinfo@]host[:port]/path[?query][#fragment]
 	// scheme:opaque[?query][#fragment]
 
@@ -23,10 +20,33 @@ func main() {
 	fmt.Println(u.Fragment)
 	fmt.Println(u.RawQuery)
 
-	// u.Scheme = "https"
-	// u.Host = "google.com"
-	// q := u.Query()
-	// q.Set("q", "golang")
-	// u.RawQuery = q.Encode()
-	// fmt.Println(u)
+}
+
+func square(num int) int {
+	return num * num
+}
+
+func mapper(f func(int) int, alist []int) []int {
+	var a = make([]int, len(alist), len(alist))
+	for index, val := range alist {
+
+		a[index] = f(val)
+	}
+	return a
+}
+
+func callback() {
+	alist := []int{4, 5, 6, 7}
+	result := mapper(square, alist)
+	fmt.Println(result)
+}
+
+func main() {
+	rawurl := "http://www.163.com:80/index?page=1#active"
+	// urlparse(rawurl)
+	dupefilter()
+	download()
+	parse()
+	storage()
+
 }
