@@ -24,7 +24,7 @@ func init() {
 	RedisHost = "localhost:6379"
 	RedisDb = 0
 	MaxIdle = 1
-	MaxActive = 10
+	MaxActive = 1000
 
 	// pooling
 	RedisClient = &redis.Pool{
@@ -87,6 +87,57 @@ func redisSISMember(key string, member string) bool {
 
 	if value == 1 {
 		// `member` is a member of `key`
+		return true
+	}
+
+	return false
+}
+
+func redisSADD(key string, member string) bool {
+	conn := RedisClient.Get() //redisConnect()
+	defer conn.Close()
+
+	value, err := redis.Int(conn.Do("SADD", key, member))
+	if err != nil {
+		log.Fatal("redis SADD failed: ", err)
+	}
+
+	if value == 1 {
+		// add `member` to `key` successfully
+		return true
+	}
+
+	return false
+}
+
+func redisSREM(key string, member string) bool {
+	conn := RedisClient.Get() //redisConnect()
+	defer conn.Close()
+
+	value, err := redis.Int(conn.Do("SREM", key, member))
+	if err != nil {
+		log.Fatal("redis SREM failed: ", err)
+	}
+
+	if value == 1 {
+		// remove `member` from `key` successfully
+		return true
+	}
+
+	return false
+}
+
+func redisDEL(key string) bool {
+	conn := RedisClient.Get() //redisConnect()
+	defer conn.Close()
+
+	value, err := redis.Int(conn.Do("Del", key))
+	if err != nil {
+		log.Fatal("redis SREM failed: ", err)
+	}
+
+	if value == 1 {
+		// del `key` successfully
 		return true
 	}
 

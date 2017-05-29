@@ -7,69 +7,72 @@ import (
 	"strings"
 )
 
-func redisExample() {
-	cmd := flag.String("cmd", "set", "set or get")
-	key := flag.String("key", "foo", "key for redis")
-	value := flag.String("value", "110", "value for set")
-	flag.Parse()
-
-	if *cmd == "set" {
-		redisSET(*key, *value)
-	} else {
-		redisGET(*key)
+func processLink(url string, depth int, maxDepth int) {
+	if depth > maxDepth {
+		log.Println("reach maxDepth")
+		return
+	}
+	if isDuplicate(url) {
+		log.Printf("URL: %v is duplicate\n", url)
+		return
 	}
 
-}
-
-func fpExample() {
-	fp := fingerPrint("hello world")
-	log.Println(fp)
-}
-
-func goQuery() {
-	url := "http://www.163.com"
 	doc := request(url)
-
-	title := getTitle(doc)
-	fmt.Println(title)
+	log.Printf("request: %v depth: %v", getTitle(doc), depth)
 
 	urlCount := getLinks(doc)
-	fmt.Println("\"\":", urlCount[""])
-	c := 0
-	for key, value := range urlCount {
-		if idx := strings.Index(key, "http"); idx != 0 {
-			fmt.Println(key, ":", value)
-		}
-		if value > 1 {
-			// fmt.Println(key)
-			c++
+	for url2, count := range urlCount {
+		if len(url2) == 0 {
+			log.Printf("len(url)==0, count: %v\n", count)
+		} else if idx := strings.Index(url2, "javascript"); idx == 0 {
+			log.Printf("url: %v, count: %v\n", url2, count)
+		} else {
+			// doc := request(url)
+			go processLink(url2, depth+1, maxDepth)
 		}
 	}
-	fmt.Println("c: ", c)
+}
+
+func redisPoolingBenchmark() {
+	n := flag.Int("n", 10, "num of connection")
+	flag.Parse()
+
+	log.Println(*n)
+	for i := 0; i < *n; i++ {
+		// redisGET("foo")
+		go redisSISMember("www.163.com", "123456789")
+	}
+
+}
+
+func f(n int) {
+	for i := 0; i < 10; i++ {
+		fmt.Println(n, ":", i)
+	}
 }
 
 func main() {
-	rawurl := "http://www.163.com"
+	go f(0)
 
-	if isDuplicate(rawurl) {
-		log.Printf("URL: %v is duplicate\n", rawurl)
-	} else {
-		log.Printf("URL: %v is NOT duplicate\n", rawurl)
+	// redisPoolingBenchmark()
 
-		doc := request(rawurl)
-		log.Printf("request: %v", getTitle(doc))
+	// reset := flag.String("reset", "false", "whther to reset")
+	// flag.Parse()
 
-		urlCount := getLinks(doc)
-		for url, count := range urlCount {
-			if count == 0 {
-				log.Printf("url: %v count == 0\n", url)
-			}
-			if len(url) == 0 {
-				log.Printf("len(url)==0, count: %v\n", count)
-			}
+	// if *reset == "true" {
+	// 	if redisDEL("www.163.com") {
+	// 		log.Println("reset success")
+	// 	} else {
+	// 		log.Println("reset failed")
+	// 	}
+	// 	return
+	// }
 
-		}
-		// storage()
-	}
+	// rawurl := "http://www.163.com"
+	// depth := 0
+	// maxDepth := 3
+	// go processLink(rawurl, depth, maxDepth)
+
+	// storage()
 
 }

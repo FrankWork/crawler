@@ -15,23 +15,7 @@ func fingerPrint(str string) string {
 	return fmt.Sprintf("%x", bytes)
 }
 
-func urlparse(rawurl string) {
-	// scheme://[userinfo@]host[:port]/path[?query][#fragment]
-	// scheme:opaque[?query][#fragment]
-
-	u, err := url.Parse(rawurl)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	log.Println(u.Scheme)
-	log.Println(u.Host)
-	log.Println(u.Path)
-	log.Println(u.Fragment)
-	log.Println(u.RawQuery)
-}
-
-func isDuplicate(rawURL string) bool {
+func hostAndFingerPrint(rawURL string) (string, string) {
 	urlStrct, err := url.Parse(rawURL)
 	if err != nil {
 		log.Fatal(err)
@@ -39,5 +23,20 @@ func isDuplicate(rawURL string) bool {
 
 	urlfb := fingerPrint(rawURL)
 
-	return redisSISMember(urlStrct.Host, urlfb)
+	return urlStrct.Host, urlfb
+}
+
+func isDuplicate(rawURL string) bool {
+	host, urlfp := hostAndFingerPrint(rawURL)
+	return redisSISMember(host, urlfp)
+}
+
+func maskDupURL(rawURL string) bool {
+	host, urlfp := hostAndFingerPrint(rawURL)
+	return redisSADD(host, urlfp)
+}
+
+func unmaskDupURL(rawURL string) bool {
+	host, urlfp := hostAndFingerPrint(rawURL)
+	return redisSREM(host, urlfp)
 }

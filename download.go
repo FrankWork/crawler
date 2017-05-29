@@ -35,5 +35,7 @@ func request(rawurl string) *goquery.Document {
 	contentType := response.Header["Content-Type"]
 	encoding := charset(contentType)
 
-	return newDoc(response.Body, encoding)
+	doc := newDoc(response.Body, encoding)
+	maskDupURL(rawurl)
+	return doc
 }
