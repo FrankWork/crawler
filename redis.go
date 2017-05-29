@@ -1,58 +1,94 @@
 package main
 
 import (
-	"flag"
-	"fmt"
-	"os"
+	"log"
+	"time"
 
 	"github.com/garyburd/redigo/redis"
 )
 
+var (
+	//RedisClient comment
+	RedisClient *redis.Pool
+	//RedisHost comment
+	RedisHost string
+	//RedisDb comment
+	RedisDb int
+	//MaxIdle comment
+	MaxIdle int
+	//MaxActive comment
+	MaxActive int
+)
+
+func init() {
+	RedisHost = "localhost:6379"
+	RedisDb = 0
+	MaxIdle = 1
+	MaxActive = 10
+
+	// pooling
+	RedisClient = &redis.Pool{
+		MaxIdle:     MaxIdle,
+		MaxActive:   MaxActive,
+		IdleTimeout: 180 * time.Second,
+		Dial: func() (redis.Conn, error) {
+			c, err := redis.Dial("tcp", RedisHost)
+			if err != nil {
+				return nil, err
+			}
+			c.Do("SELECT", RedisDb)
+			return c, nil
+		},
+	}
+}
+
 func redisConnect() redis.Conn {
 	conn, err := redis.Dial("tcp", "localhost:6379")
 	if err != nil {
-		fmt.Println("Connect to redis error", err)
-		os.Exit(1)
+		log.Fatal("Connect to redis error", err)
 	}
 
 	return conn
 }
-func redisSet(key string, value string) {
-	conn := redisConnect()
+func redisSET(key string, value string) {
+	conn := RedisClient.Get() //redisConnect()
 	defer conn.Close()
 
 	ok, err := conn.Do("set", key, value)
 	if err != nil {
-		fmt.Println("redis set failed: ", err)
+		log.Println("redis set failed: ", err)
 	} else {
-		fmt.Printf("redis set key: %v value: %v \n", key, value)
-		fmt.Println(ok)
+		log.Printf("redis set key: %v value: %v \n", key, value)
+		log.Println(ok)
 	}
 }
 
-func redisGet(key string) {
-	conn := redisConnect()
+func redisGET(key string) {
+	conn := RedisClient.Get() //redisConnect()
 	defer conn.Close()
 
 	value, err := redis.String(conn.Do("Get", key))
 	if err != nil {
-		fmt.Println("redis get failed: ", err)
+		log.Println("redis get failed: ", err)
 	} else {
-		fmt.Printf("redis get key: %v value: %v \n", key, value)
+		log.Printf("redis get key: %v value: %v \n", key, value)
 	}
 
 }
 
-func redisExample() {
-	cmd := flag.String("cmd", "set", "set or get")
-	key := flag.String("key", "foo", "key for redis")
-	value := flag.String("value", "110", "value for set")
-	flag.Parse()
+func redisSISMember(key string, member string) bool {
+	conn := RedisClient.Get() //redisConnect()
+	defer conn.Close()
 
-	if *cmd == "set" {
-		redisSet(*key, *value)
-	} else {
-		redisGet(*key)
+	value, err := redis.Int(conn.Do("SISMEMBER", key, member))
+	if err != nil {
+		log.Fatal("redis SISMEMBER failed: ", err)
 	}
 
+	if value == 1 {
+		// `member` is a member of `key`
+		return true
+	}
+
+	return false
 }
