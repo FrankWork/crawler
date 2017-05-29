@@ -42,17 +42,16 @@ func init() {
 	}
 }
 
-func redisConnect() redis.Conn {
-	conn, err := redis.Dial("tcp", "localhost:6379")
-	if err != nil {
-		log.Fatal("Connect to redis error", err)
-	}
-
-	return conn
-}
-func redisSET(key string, value string) {
-	conn := RedisClient.Get() //redisConnect()
-	defer conn.Close()
+// func redisConnect() redis.Conn {
+// 	conn, err := redis.Dial("tcp", "localhost:6379")
+// 	if err != nil {
+// 		log.Fatal("Connect to redis error", err)
+// 	}
+// 	return conn
+// }
+func redisSET(conn redis.Conn, key string, value string) {
+	// conn := RedisClient.Get()
+	// defer conn.Close()
 
 	ok, err := conn.Do("set", key, value)
 	if err != nil {
@@ -64,7 +63,7 @@ func redisSET(key string, value string) {
 }
 
 func redisGET(key string) {
-	conn := RedisClient.Get() //redisConnect()
+	conn := RedisClient.Get()
 	defer conn.Close()
 
 	value, err := redis.String(conn.Do("Get", key))
@@ -77,11 +76,12 @@ func redisGET(key string) {
 }
 
 func redisSISMember(key string, member string) bool {
-	conn := RedisClient.Get() //redisConnect()
+	conn := RedisClient.Get()
 	defer conn.Close()
 
 	value, err := redis.Int(conn.Do("SISMEMBER", key, member))
 	if err != nil {
+		log.Printf("key: %v member: %v", key, member)
 		log.Fatal("redis SISMEMBER failed: ", err)
 	}
 
@@ -94,7 +94,7 @@ func redisSISMember(key string, member string) bool {
 }
 
 func redisSADD(key string, member string) bool {
-	conn := RedisClient.Get() //redisConnect()
+	conn := RedisClient.Get()
 	defer conn.Close()
 
 	value, err := redis.Int(conn.Do("SADD", key, member))
@@ -111,7 +111,7 @@ func redisSADD(key string, member string) bool {
 }
 
 func redisSREM(key string, member string) bool {
-	conn := RedisClient.Get() //redisConnect()
+	conn := RedisClient.Get()
 	defer conn.Close()
 
 	value, err := redis.Int(conn.Do("SREM", key, member))
@@ -128,7 +128,7 @@ func redisSREM(key string, member string) bool {
 }
 
 func redisDEL(key string) bool {
-	conn := RedisClient.Get() //redisConnect()
+	conn := RedisClient.Get()
 	defer conn.Close()
 
 	value, err := redis.Int(conn.Do("Del", key))
