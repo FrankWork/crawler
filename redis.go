@@ -24,7 +24,7 @@ func init() {
 	RedisHost = "localhost:6379"
 	RedisDb = 0
 	MaxIdle = 1
-	MaxActive = 1000
+	MaxActive = 10
 
 	// pooling
 	RedisClient = &redis.Pool{
@@ -42,13 +42,14 @@ func init() {
 	}
 }
 
-// func redisConnect() redis.Conn {
-// 	conn, err := redis.Dial("tcp", "localhost:6379")
-// 	if err != nil {
-// 		log.Fatal("Connect to redis error", err)
-// 	}
-// 	return conn
-// }
+func redisConnect() redis.Conn {
+	conn, err := redis.Dial("tcp", "localhost:6379")
+	if err != nil {
+		log.Fatal("Connect to redis error", err)
+	}
+	return conn
+}
+
 func redisSET(conn redis.Conn, key string, value string) {
 	// conn := RedisClient.Get()
 	// defer conn.Close()

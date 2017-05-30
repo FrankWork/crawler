@@ -41,38 +41,55 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	}
 }
 
-func redisPoolingBenchmark(wg *sync.WaitGroup, conn redis.Conn) {
+func redisPoolingConcurrentBenchmark(wg *sync.WaitGroup) {
 	n := flag.Int("n", 10, "num of connection")
 	flag.Parse()
 
 	log.Println(*n)
+	wrapper := func(wg *sync.WaitGroup, key string, value string) {
+		conn := RedisClient.Get()
+		// conn := redisConnect()
+		defer conn.Close()
+
+		defer wg.Done()
+		redisSET(conn, key, value)
+	}
+
 	for i := 0; i < *n; i++ {
 		wg.Add(1)
-		// go redisSISMember("www.163.com", "123456789")
-		wrapper := func(wg *sync.WaitGroup, conn redis.Conn, key string, value string) {
-			defer wg.Done()
-			ok, err := conn.Do("set", key, value)
-			if err != nil {
-				log.Println("redis set failed: ", err)
-			} else {
-				log.Printf("redis set key: %v value: %v \n", key, value)
-				log.Println(ok)
-			}
-		}
-		go wrapper(wg, conn, "foo", strconv.Itoa(i))
+		go wrapper(wg, "foo", strconv.Itoa(i))
 	}
+
+	wg.Wait()
 }
 
-func close() {
-	log.Println("close now")
+func redisPoolingSequentialBenchmark(wg *sync.WaitGroup) {
+	n := flag.Int("n", 10, "num of connection")
+	flag.Parse()
+
+	// conn := RedisClient.Get()
+	conn := redisConnect()
+	defer conn.Close()
+
+	log.Println(*n)
+	wrapper := func(wg *sync.WaitGroup, conn redis.Conn) {
+		defer wg.Done()
+		for i := 0; i < *n; i++ {
+			redisSET(conn, "foo", strconv.Itoa(i))
+		}
+	}
+
+	wg.Add(1)
+	go wrapper(wg, conn)
+	wg.Wait()
 }
+
 func main() {
 	var wg sync.WaitGroup
-	conn := RedisClient.Get()
-	defer conn.Close()
-	defer close()
 
-	redisPoolingBenchmark(&wg, conn)
+	// redisPoolingSequentialBenchmark(&wg)
+	redisPoolingConcurrentBenchmark(&wg)
+	wg.Wait()
 
 	// reset := flag.String("reset", "false", "whther to reset")
 	// flag.Parse()
@@ -93,7 +110,7 @@ func main() {
 	// wg.Add(1)
 	// go processLink(&wg, rawurl, depth, maxDepth)
 
-	wg.Wait()
+	// wg.Wait()
 	// storage()
 
 }
