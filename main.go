@@ -1,13 +1,9 @@
 package main
 
 import (
-	"flag"
 	"log"
-	"strconv"
 	"strings"
 	"sync"
-
-	"github.com/garyburd/redigo/redis"
 )
 
 func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
@@ -41,55 +37,8 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	}
 }
 
-func redisPoolingConcurrentBenchmark(wg *sync.WaitGroup) {
-	n := flag.Int("n", 10, "num of connection")
-	flag.Parse()
-
-	log.Println(*n)
-	wrapper := func(wg *sync.WaitGroup, key string, value string) {
-		conn := RedisClient.Get()
-		// conn := redisConnect()
-		defer conn.Close()
-
-		defer wg.Done()
-		redisSET(conn, key, value)
-	}
-
-	for i := 0; i < *n; i++ {
-		wg.Add(1)
-		go wrapper(wg, "foo", strconv.Itoa(i))
-	}
-
-	wg.Wait()
-}
-
-func redisPoolingSequentialBenchmark(wg *sync.WaitGroup) {
-	n := flag.Int("n", 10, "num of connection")
-	flag.Parse()
-
-	// conn := RedisClient.Get()
-	conn := redisConnect()
-	defer conn.Close()
-
-	log.Println(*n)
-	wrapper := func(wg *sync.WaitGroup, conn redis.Conn) {
-		defer wg.Done()
-		for i := 0; i < *n; i++ {
-			redisSET(conn, "foo", strconv.Itoa(i))
-		}
-	}
-
-	wg.Add(1)
-	go wrapper(wg, conn)
-	wg.Wait()
-}
-
 func main() {
-	var wg sync.WaitGroup
-
-	// redisPoolingSequentialBenchmark(&wg)
-	redisPoolingConcurrentBenchmark(&wg)
-	wg.Wait()
+	benchmarkMain()
 
 	// reset := flag.String("reset", "false", "whther to reset")
 	// flag.Parse()

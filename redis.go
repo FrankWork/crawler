@@ -5,29 +5,39 @@ import (
 	"time"
 
 	"github.com/garyburd/redigo/redis"
+	"github.com/youtube/vitess/go/pools"
 )
 
+// ResourceConn adapts a Redigo connection to a Vitess Resource.
+type ResourceConn struct {
+	redis.Conn
+}
+
+// Close methods of struct ResourceConn
+func (r ResourceConn) Close() {
+	r.Conn.Close()
+}
+
 var (
-	//RedisClient comment
-	RedisClient *redis.Pool
 	//RedisHost comment
 	RedisHost string
 	//RedisDb comment
 	RedisDb int
-	//MaxIdle comment
-	MaxIdle int
-	//MaxActive comment
-	MaxActive int
+	//RedisPool redigo default pool
+	RedisPool *redis.Pool
+	// RedisResourcePool is vitess pools wrapper of redigo conn
+	RedisResourcePool *pools.ResourcePool
 )
 
 func init() {
 	RedisHost = "localhost:6379"
 	RedisDb = 0
-	MaxIdle = 1
-	MaxActive = 10
+
+	MaxIdle := 1
+	MaxActive := 10
 
 	// pooling
-	RedisClient = &redis.Pool{
+	RedisPool = &redis.Pool{
 		MaxIdle:     MaxIdle,
 		MaxActive:   MaxActive,
 		IdleTimeout: 180 * time.Second,
@@ -40,6 +50,17 @@ func init() {
 			return c, nil
 		},
 	}
+
+	factory := func() (pools.Resource, error) {
+		conn, err := redis.Dial("tcp", ":6379")
+		return ResourceConn{conn}, err
+	}
+	capacity := MaxIdle
+	maxCap := MaxActive
+	idleTimeout := time.Minute
+
+	RedisResourcePool = pools.NewResourcePool(factory, capacity, maxCap, idleTimeout)
+
 }
 
 func redisConnect() redis.Conn {
@@ -50,8 +71,21 @@ func redisConnect() redis.Conn {
 	return conn
 }
 
+func redisSET2(conn ResourceConn, key string, value string) {
+	// conn := RedisPool.Get()
+	// defer conn.Close()
+
+	ok, err := conn.Do("set", key, value)
+	if err != nil {
+		log.Println("redis set failed: ", err)
+	} else {
+		log.Printf("redis set key: %v value: %v \n", key, value)
+		log.Println(ok)
+	}
+}
+
 func redisSET(conn redis.Conn, key string, value string) {
-	// conn := RedisClient.Get()
+	// conn := RedisPool.Get()
 	// defer conn.Close()
 
 	ok, err := conn.Do("set", key, value)
@@ -64,7 +98,7 @@ func redisSET(conn redis.Conn, key string, value string) {
 }
 
 func redisGET(key string) {
-	conn := RedisClient.Get()
+	conn := RedisPool.Get()
 	defer conn.Close()
 
 	value, err := redis.String(conn.Do("Get", key))
@@ -77,7 +111,7 @@ func redisGET(key string) {
 }
 
 func redisSISMember(key string, member string) bool {
-	conn := RedisClient.Get()
+	conn := RedisPool.Get()
 	defer conn.Close()
 
 	value, err := redis.Int(conn.Do("SISMEMBER", key, member))
@@ -95,7 +129,7 @@ func redisSISMember(key string, member string) bool {
 }
 
 func redisSADD(key string, member string) bool {
-	conn := RedisClient.Get()
+	conn := RedisPool.Get()
 	defer conn.Close()
 
 	value, err := redis.Int(conn.Do("SADD", key, member))
@@ -112,7 +146,7 @@ func redisSADD(key string, member string) bool {
 }
 
 func redisSREM(key string, member string) bool {
-	conn := RedisClient.Get()
+	conn := RedisPool.Get()
 	defer conn.Close()
 
 	value, err := redis.Int(conn.Do("SREM", key, member))
@@ -129,7 +163,7 @@ func redisSREM(key string, member string) bool {
 }
 
 func redisDEL(key string) bool {
-	conn := RedisClient.Get()
+	conn := RedisPool.Get()
 	defer conn.Close()
 
 	value, err := redis.Int(conn.Do("Del", key))
