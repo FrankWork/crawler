@@ -26,9 +26,9 @@ func hostAndFingerPrint(rawURL string) (string, string) {
 	return urlStrct.Host, urlfb
 }
 
-func isDuplicate(rawURL string) bool {
+func isDuplicate(conn ResourceConn, rawURL string) bool {
 	host, urlfp := hostAndFingerPrint(rawURL)
-	return redisSISMember(host, urlfp)
+	return redisSISMember(conn ResourceConn, host, urlfp)
 }
 
 func maskDupURL(rawURL string) bool {

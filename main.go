@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"strings"
 	"sync"
@@ -13,12 +14,16 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 		log.Println("reach maxDepth")
 		return
 	}
-	if isDuplicate(url) {
+
+	conn, resource := redisPoolConnect()
+	defer RedisResourcePool.Put(resource)
+
+	if isDuplicate(conn, url) {
 		log.Printf("URL: %v is duplicate\n", url)
 		return
 	}
 
-	doc := request(url)
+	doc := request(conn, url)
 	log.Printf("request: %v depth: %v", getTitle(doc), depth)
 
 	urlCount := getLinks(doc)
@@ -38,28 +43,29 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 }
 
 func main() {
-	benchmarkMain()
+	// benchmarkMain()
 
-	// reset := flag.String("reset", "false", "whther to reset")
-	// flag.Parse()
+	defer RedisResourcePool.Close()
 
-	// if *reset == "true" {
-	// 	if redisDEL("www.163.com") {
-	// 		log.Println("reset success")
-	// 	} else {
-	// 		log.Println("reset failed")
-	// 	}
-	// 	return
-	// }
+	reset := flag.String("reset", "false", "whther to reset")
+	flag.Parse()
 
-	// rawurl := "http://www.163.com"
-	// depth := 0
-	// maxDepth := 3
+	if *reset == "true" {
+		if redisDEL("www.163.com") {
+			log.Println("reset success")
+		} else {
+			log.Println("reset failed")
+		}
+		return
+	}
 
-	// wg.Add(1)
-	// go processLink(&wg, rawurl, depth, maxDepth)
+	rawurl := "http://www.163.com"
+	depth := 0
+	maxDepth := 3
 
-	// wg.Wait()
+	processLink(&wg, rawurl, depth, maxDepth)
+
+	wg.Wait()
 	// storage()
 
 }

@@ -85,14 +85,13 @@ func benchmarkMain() {
 	var wg sync.WaitGroup
 
 	defer RedisResourcePool.Close()
-	defer RedisPool.Close()
 
 	if *mode == "sync" {
 		redisPoolingBenchmarkSync(&wg, *n)
 	} else if *mode == "async" {
 		redisPoolingBenchmarkAsync(&wg, *n)
 	} else {
-		log.Println(flag.Args())
+		log.Println("Oops!")
 	}
 
 	wg.Wait()
