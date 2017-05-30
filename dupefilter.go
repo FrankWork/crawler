@@ -28,15 +28,25 @@ func hostAndFingerPrint(rawURL string) (string, string) {
 
 func isDuplicate(conn ResourceConn, rawURL string) bool {
 	host, urlfp := hostAndFingerPrint(rawURL)
-	return redisSISMember(conn ResourceConn, host, urlfp)
+	return redisSISMember(conn, host, urlfp)
 }
 
-func maskDupURL(rawURL string) bool {
-	host, urlfp := hostAndFingerPrint(rawURL)
-	return redisSADD(host, urlfp)
+func isDuplicateDebug(conn ResourceConn, rawURL string) bool {
+	_, urlfp := hostAndFingerPrint(rawURL)
+	return redisSISMember(conn, "www.163.com", urlfp)
 }
 
-func unmaskDupURL(rawURL string) bool {
+func maskDupURLDebug(conn ResourceConn, rawURL string) bool {
+	_, urlfp := hostAndFingerPrint(rawURL)
+	return redisSADD(conn, "www.163.com", urlfp)
+}
+
+func maskDupURL(conn ResourceConn, rawURL string) bool {
 	host, urlfp := hostAndFingerPrint(rawURL)
-	return redisSREM(host, urlfp)
+	return redisSADD(conn, host, urlfp)
+}
+
+func unmaskDupURL(conn ResourceConn, rawURL string) bool {
+	host, urlfp := hostAndFingerPrint(rawURL)
+	return redisSREM(conn, host, urlfp)
 }

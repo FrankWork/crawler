@@ -4,6 +4,8 @@ import (
 	"io"
 	"log"
 
+	"strings"
+
 	"github.com/PuerkitoBio/goquery"
 	"gopkg.in/iconv.v1"
 )
@@ -37,19 +39,32 @@ func getTitle(doc *goquery.Document) string {
 }
 
 func getLinks(doc *goquery.Document) map[string]int {
-	// var indices []int
-	// var urlArr []string
 	urlCount := make(map[string]int)
 
 	doc.Find("a").Each(func(index int, sel *goquery.Selection) {
-		url, _ := sel.Attr("href")
-		// urlArr = append(urlArr, url)
+		url, exists := sel.Attr("href")
+		url = strings.Trim(url, " \t\n")
+		if !exists {
+			return
+		}
+		if len(url) == 0 || url == "#" || strings.ContainsAny(url, "{}") {
+			return
+		}
+		if strings.Index(url, "javascript") == 0 || strings.Index(url, "mailto:") == 0 {
+			return
+		}
+		if strings.Index(url, "http") != 0 {
+			// TODO join, redirect
+			// fmt.Printf("\tindex(http)!=0 %s\n", url)
+			return
+		}
+		if strings.Index(url, "http") == 0 && !(strings.Contains(url, "163.com") || strings.Contains(url, "netease.com")) {
+			// 126.com, youdao.com
+			// fmt.Printf("\tout of domain %s\n", url)
+			return
+		}
 		urlCount[url]++
-		// indices = append(indices, index)
 	})
-	// fmt.Println(len(urlArr))
-	// fmt.Println(len(urlCount))
-	// fmt.Println(urlArr[0])
 
 	return urlCount
 }

@@ -66,9 +66,6 @@ func redisConnect() redis.Conn {
 }
 
 func redisSET(conn redis.Conn, key string, value string) {
-	// conn := RedisPool.Get()
-	// defer conn.Close()
-
 	ok, err := conn.Do("set", key, value)
 	if err != nil {
 		log.Println("redis set failed: ", err)
@@ -79,7 +76,7 @@ func redisSET(conn redis.Conn, key string, value string) {
 }
 
 func redisGET(key string) {
-	conn := RedisPool.Get()
+	conn := redisConnect()
 	defer conn.Close()
 
 	value, err := redis.String(conn.Do("Get", key))
@@ -92,9 +89,6 @@ func redisGET(key string) {
 }
 
 func redisSISMember(conn ResourceConn, key string, member string) bool {
-	// conn := RedisPool.Get()
-	// defer conn.Close()
-
 	value, err := redis.Int(conn.Do("SISMEMBER", key, member))
 	if err != nil {
 		log.Printf("key: %v member: %v", key, member)
@@ -109,10 +103,7 @@ func redisSISMember(conn ResourceConn, key string, member string) bool {
 	return false
 }
 
-func redisSADD(key string, member string) bool {
-	conn := RedisPool.Get()
-	defer conn.Close()
-
+func redisSADD(conn ResourceConn, key string, member string) bool {
 	value, err := redis.Int(conn.Do("SADD", key, member))
 	if err != nil {
 		log.Fatal("redis SADD failed: ", err)
@@ -126,10 +117,7 @@ func redisSADD(key string, member string) bool {
 	return false
 }
 
-func redisSREM(key string, member string) bool {
-	conn := RedisPool.Get()
-	defer conn.Close()
-
+func redisSREM(conn ResourceConn, key string, member string) bool {
 	value, err := redis.Int(conn.Do("SREM", key, member))
 	if err != nil {
 		log.Fatal("redis SREM failed: ", err)
@@ -144,7 +132,7 @@ func redisSREM(key string, member string) bool {
 }
 
 func redisDEL(key string) bool {
-	conn := RedisPool.Get()
+	conn := redisConnect()
 	defer conn.Close()
 
 	value, err := redis.Int(conn.Do("Del", key))

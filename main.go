@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"log"
-	"strings"
 	"sync"
 )
 
@@ -18,37 +17,36 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	conn, resource := redisPoolConnect()
 	defer RedisResourcePool.Put(resource)
 
-	if isDuplicate(conn, url) {
+	if isDuplicateDebug(conn, url) {
 		log.Printf("URL: %v is duplicate\n", url)
 		return
 	}
 
-	doc := request(conn, url)
-	log.Printf("request: %v depth: %v", getTitle(doc), depth)
+	doc := request(url)
+	if doc == nil {
+		return
+	}
+	// maskDupURL(conn, url)
+	maskDupURLDebug(conn, url)
+	log.Printf("%d %s %s\n", depth, getTitle(doc), url)
 
 	urlCount := getLinks(doc)
-	log.Printf("total urls: %v\n", len(urlCount))
+	// log.Printf("total urls: %v\n", len(urlCount))
 
-	for url2, count := range urlCount {
-		if len(url2) == 0 {
-			log.Printf("len(url)==0, count: %v\n", count)
-		} else if idx := strings.Index(url2, "javascript"); idx == 0 {
-			log.Printf("url: %v, count: %v\n", url2, count)
-		} else {
-			// doc := request(url)
-			wg.Add(1)
-			go processLink(wg, url2, depth+1, maxDepth)
-		}
+	for url2 := range urlCount {
+		wg.Add(1)
+		go processLink(wg, url2, depth+1, maxDepth)
 	}
 }
 
 func main() {
 	// benchmarkMain()
-
-	defer RedisResourcePool.Close()
-
 	reset := flag.String("reset", "false", "whther to reset")
 	flag.Parse()
+
+	var wg sync.WaitGroup
+
+	defer RedisResourcePool.Close()
 
 	if *reset == "true" {
 		if redisDEL("www.163.com") {
@@ -59,11 +57,14 @@ func main() {
 		return
 	}
 
+	//rawurl := "http://www.163.com/newsapp"
+	//rawurl := "http://gb.corp.163.com/gb/about/overview.html"
 	rawurl := "http://www.163.com"
 	depth := 0
 	maxDepth := 3
 
-	processLink(&wg, rawurl, depth, maxDepth)
+	wg.Add(1)
+	go processLink(&wg, rawurl, depth, maxDepth)
 
 	wg.Wait()
 	// storage()
