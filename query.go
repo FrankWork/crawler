@@ -10,7 +10,7 @@ import (
 	"gopkg.in/iconv.v1"
 )
 
-func newDoc(body io.ReadCloser, encoding string) *goquery.Document {
+func newDoc(body io.ReadCloser, encoding string, url string) *goquery.Document {
 	if encoding != "utf-8" {
 		cd, err := iconv.Open("utf-8", encoding) // convert encoding to utf-8
 		if err != nil {
@@ -22,6 +22,7 @@ func newDoc(body io.ReadCloser, encoding string) *goquery.Document {
 		reader := iconv.NewReader(cd, body, bufSize)
 		doc, err := goquery.NewDocumentFromReader(reader)
 		if err != nil {
+			log.Printf("read error: %s\n", url)
 			log.Fatal(err)
 		}
 		return doc
@@ -29,6 +30,7 @@ func newDoc(body io.ReadCloser, encoding string) *goquery.Document {
 
 	doc, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
+		log.Printf("read error: %s\n", url)
 		log.Fatal(err)
 	}
 	return doc

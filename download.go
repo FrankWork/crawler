@@ -3,47 +3,35 @@ package main
 import (
 	"log"
 	"net/http"
-	"strings"
+	"regexp"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
-// TODO merge 2 function as 1
-func parseCharset(contentType []string, url string) string {
-	defaultEncoding := "utf-8"
+var regx = regexp.MustCompile(`(.+); ?charset=(.+)$`)
+
+func contentAndEncoding(contentType []string, url string) (string, string) {
+	content := "text/html"
+	encoding := "utf-8"
 
 	if len(contentType) == 1 {
-		prefix := "charset="
-		index := strings.Index(contentType[0], prefix)
-		if index == -1 {
-			log.Printf("no charset in contentType, %s\n", url)
-			return defaultEncoding
-		}
-		encoding := contentType[0][index+len(prefix):]
-		return strings.ToLower(encoding)
-	}
-	log.Printf("len(contentType) != 1, %s\n", url)
-	return defaultEncoding
-}
+		result := regx.FindAllStringSubmatch(contentType[0], 2)
 
-func parseContentType(contentType []string, url string) string {
-	defaultType := "text/html"
-	if len(contentType) == 1 {
-		prefix := "Content-Type: "
-		index := strings.Index(contentType[0], prefix)
-		if index == -1 {
-			log.Printf("no `Content-Type` in `contentType`, %s\n", url)
-			return defaultType
+		// []
+		if len(result) == 0 {
+			return content, encoding
 		}
-		endIndex := strings.Index(contentType[0], "; charset")
-		if endIndex == -1 {
-			endIndex = len(contentType[0])
+		//[[text/html; charset=utf-8 text/html utf-8]]
+		if len(result[0]) == 2 {
+			content = result[0][1]
+		} else if len(result[0]) == 3 {
+			content = result[0][1]
+			encoding = result[0][2]
 		}
-		defaultType = contentType[0][index+len(prefix) : endIndex]
-		return strings.ToLower(defaultType)
+		return content, encoding
 	}
 	log.Printf("len(contentType) != 1, %s\n", url)
-	return defaultType
+	return content, encoding
 }
 
 func request(rawurl string) *goquery.Document {
@@ -54,12 +42,14 @@ func request(rawurl string) *goquery.Document {
 	defer response.Body.Close()
 
 	contentType := response.Header["Content-Type"]
-	encoding := parseCharset(contentType, rawurl)
-	content := parseContentType(contentType, rawurl)
+	content, encoding := contentAndEncoding(contentType, rawurl)
+	// log.Printf("%s : %s\n", contentType[0], rawurl)
+	// log.Printf("%s, %s : %s\n", content, encoding, rawurl)
+
 	if content != "text/html" {
 		log.Printf("%s %s\n", content, rawurl)
 		return nil
 	}
-	doc := newDoc(response.Body, encoding)
+	doc := newDoc(response.Body, encoding, rawurl)
 	return doc
 }

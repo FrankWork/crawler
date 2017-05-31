@@ -18,7 +18,7 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	defer RedisResourcePool.Put(resource)
 
 	if isDuplicateDebug(conn, url) {
-		log.Printf("URL: %v is duplicate\n", url)
+		// log.Printf("URL: %v is duplicate\n", url)
 		return
 	}
 
@@ -28,7 +28,7 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	}
 	// maskDupURL(conn, url)
 	maskDupURLDebug(conn, url)
-	log.Printf("%d %s %s\n", depth, getTitle(doc), url)
+	log.Printf("%d %s\n", depth, getTitle(doc))
 
 	urlCount := getLinks(doc)
 	// log.Printf("total urls: %v\n", len(urlCount))
@@ -57,8 +57,22 @@ func main() {
 		return
 	}
 
-	//rawurl := "http://www.163.com/newsapp"
-	//rawurl := "http://gb.corp.163.com/gb/about/overview.html"
+	// ========== encoding error ===========
+	// rawurl := "http://x3.163.com/"
+
+	// ========== read error ===============
+	// rawurl := "http://v.163.com/open/"
+	// http://open.163.com/movie/2017/5/U/1/MCK194LGV_MCK196RU1.html
+	// http://open.163.com/movie/2017/5/H/T/MCKH42S7I_MCKH5A2HT.html
+	// http://open.163.com/#f=topnav
+
+	// ========== server shutdown ===============
+	// http://xdw.zhidao.163.com?from=index
+	// http://g.163.com/a?CID=49141&Values=132441315&Redirect=http://www.elianhong.com/zhuanti/ucsd/index.html
+
+	// ========== image ===============
+	// http://img2.cache.netease.com/f2e/www/index2014/images/cert.png // image
+
 	rawurl := "http://www.163.com"
 	depth := 0
 	maxDepth := 3
