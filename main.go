@@ -34,7 +34,7 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	log.Printf("%d %s\n", depth, getTitle(doc))
 
 	urlCount := getLinks(doc)
-	// log.Printf("total urls: %v\n", len(urlCount))
+	log.Printf("total urls: %v\n", len(urlCount))
 
 	for url2 := range urlCount {
 		wg.Add(1)

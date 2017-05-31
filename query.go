@@ -1,14 +1,13 @@
 package main
 
 import (
-	"io"
+	"bytes"
 	"log"
 	"regexp"
 
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/djimenez/iconv-go"
 )
 
 var regx = regexp.MustCompile(`(.+?);? ?(charset=(.+))?$`)
@@ -22,26 +21,12 @@ func contentAndEncoding(contentType string) (string, string) {
 	return content, encoding
 }
 
-func newDoc(body io.Reader, encoding string, url string) *goquery.Document {
-	if encoding != "utf-8" {
-		reader, err := iconv.NewReader(body, encoding, "utf-8")
-		if err != nil {
-			log.Printf("iconv.NewReader failed! : %s\n", url)
-			// log.Fatal(err)
-			return nil
-		}
-		doc, err := goquery.NewDocumentFromReader(reader)
-		if err != nil {
-			log.Printf("goquery.NewDocumentFromReader(reader) failed! : %s\n", url)
-			// log.Fatal(err)
-			return nil
-		}
-		return doc
-	}
+func newDoc(body []byte, url string) *goquery.Document {
+	reader := bytes.NewReader(body)
 
-	doc, err := goquery.NewDocumentFromReader(body)
+	doc, err := goquery.NewDocumentFromReader(reader)
 	if err != nil {
-		log.Printf("goquery.NewDocumentFromReader(body) failed! : %s\n", url)
+		log.Printf("goquery.NewDocumentFromReader(reader) failed! : %s\n", url)
 		log.Fatal(err)
 	}
 	return doc
@@ -79,10 +64,12 @@ func getTitle(doc *goquery.Document) string {
 
 func getLinks(doc *goquery.Document) map[string]int {
 	urlCount := make(map[string]int)
-
+	log.Println("=======================")
+	// log.Println(doc.Text())
 	doc.Find("a").Each(func(index int, sel *goquery.Selection) {
 		url, exists := sel.Attr("href")
 		url = strings.Trim(url, " \t\n")
+		log.Println(url)
 		if !exists {
 			return
 		}
