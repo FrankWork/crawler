@@ -3,37 +3,74 @@ package main
 import (
 	"io"
 	"log"
+	"regexp"
 
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
-	"gopkg.in/iconv.v1"
+	"github.com/djimenez/iconv-go"
 )
 
-func newDoc(body io.ReadCloser, encoding string, url string) *goquery.Document {
-	if encoding != "utf-8" {
-		cd, err := iconv.Open("utf-8", encoding) // convert encoding to utf-8
-		if err != nil {
-			log.Fatal("iconv.Open failed!")
-		}
-		defer cd.Close()
+var regx = regexp.MustCompile(`(.+?);? ?(charset=(.+))?$`)
 
-		bufSize := 0 // default if zero
-		reader := iconv.NewReader(cd, body, bufSize)
+func contentAndEncoding(contentType string) (string, string) {
+	result := regx.FindAllStringSubmatch(contentType, 3)
+
+	//[[text/html; charset=utf-8 text/html charset=utf-8 utf-8]]
+	content := result[0][1]
+	encoding := result[0][3]
+	return content, encoding
+}
+
+func newDoc(body io.Reader, encoding string, url string) *goquery.Document {
+	if encoding != "utf-8" {
+		reader, err := iconv.NewReader(body, encoding, "utf-8")
+		if err != nil {
+			log.Printf("iconv.NewReader failed! : %s\n", url)
+			// log.Fatal(err)
+			return nil
+		}
 		doc, err := goquery.NewDocumentFromReader(reader)
 		if err != nil {
-			log.Printf("read error: %s\n", url)
-			log.Fatal(err)
+			log.Printf("goquery.NewDocumentFromReader(reader) failed! : %s\n", url)
+			// log.Fatal(err)
+			return nil
 		}
 		return doc
 	}
 
 	doc, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
-		log.Printf("read error: %s\n", url)
+		log.Printf("goquery.NewDocumentFromReader(body) failed! : %s\n", url)
 		log.Fatal(err)
 	}
 	return doc
+}
+
+func charsetInHTML(doc *goquery.Document) string {
+	// <meta http-equiv="Content-Type" content="text/html; charset=gb2312" />
+	// <meta charset="gb2312">
+	charset := ""
+	exists := false
+
+	doc.Find("meta").EachWithBreak(func(index int, sel *goquery.Selection) bool {
+		charset, exists = sel.Attr("charset")
+		if exists {
+			return false // break loop
+		}
+
+		charset, exists = sel.Attr("content")
+		if exists {
+			_, charset = contentAndEncoding(charset)
+			if charset != "" {
+				return false
+			}
+		}
+
+		return true
+	})
+
+	return charset
 }
 
 func getTitle(doc *goquery.Document) string {
