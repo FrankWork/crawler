@@ -18,6 +18,7 @@ func convert(encoding string, bodyReader io.Reader) []byte {
 		log.Println(err.Error())
 		return nil
 	}
+
 	bodyBytes, err := ioutil.ReadAll(reader)
 	if err != nil {
 		log.Println(err.Error())

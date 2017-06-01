@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"sync"
 )
@@ -17,7 +18,7 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	conn, resource := redisPoolConnect()
 	defer RedisResourcePool.Put(resource)
 
-	if isDuplicateDebug(conn, url) {
+	if isDuplicateSet(conn, url) {
 		// log.Printf("URL: %v is duplicate\n", url)
 		return
 	}
@@ -29,8 +30,9 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	}
 
 	// maskDupURL(conn, url)
-	maskDupURLDebug(conn, url)
-	log.Printf("%d %s %s\n", depth, getTitle(doc), url)
+	// maskDupURLDebug(conn, url)
+	maskDupURLSet(conn, url)
+	fmt.Printf("%d %s %s\n", depth, getTitle(doc), url)
 	// log.Printf("%d %s\n", depth, getTitle(doc))
 
 	urlCount := getLinks(doc)

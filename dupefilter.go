@@ -7,6 +7,8 @@ import (
 	"net/url"
 )
 
+var urlSet = make(map[string]int)
+
 func fingerPrint(str string) string {
 	hash := sha1.New()
 	hash.Write([]byte(str))
@@ -29,6 +31,21 @@ func hostAndFingerPrint(rawURL string) (string, string) {
 func isDuplicate(conn ResourceConn, rawURL string) bool {
 	host, urlfp := hostAndFingerPrint(rawURL)
 	return redisSISMember(conn, host, urlfp)
+}
+
+func isDuplicateSet(conn ResourceConn, rawURL string) bool {
+	_, urlfp := hostAndFingerPrint(rawURL)
+
+	if urlSet[urlfp] == 0 {
+		return false
+	}
+	return true
+}
+
+func maskDupURLSet(conn ResourceConn, rawURL string) bool {
+	_, urlfp := hostAndFingerPrint(rawURL)
+	urlSet[urlfp] = 1
+	return true
 }
 
 func isDuplicateDebug(conn ResourceConn, rawURL string) bool {
