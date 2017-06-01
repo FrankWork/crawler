@@ -1,24 +1,34 @@
 package main
 
 import (
-	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 
 	"github.com/PuerkitoBio/goquery"
-	qconv "gopkg.in/iconv.v1"
+	"golang.org/x/net/html/charset"
 )
 
-func convertStr(str string, fromEncode string, toEncode string) string {
-	cd, err := qconv.Open(toEncode, fromEncode)
-	if err != nil {
-		fmt.Println("iconv.Open failed!")
-		return ""
-	}
-	defer cd.Close()
+// Charset auto determine. Use golang.org/x/net/html/charset. Get page body and change it to utf-8
+func changeCharsetEncodingAuto(contentTypeStr string, sor io.ReadCloser) []byte {
+	var err error
+	destReader, err := charset.NewReader(sor, contentTypeStr)
 
-	return cd.ConvString(str)
+	if err != nil {
+		log.Println(err.Error())
+		destReader = sor
+	}
+
+	var sorbody []byte
+	if sorbody, err = ioutil.ReadAll(destReader); err != nil {
+		log.Println(err.Error())
+		// For gb2312, an error will be returned.
+		// Error like: simplifiedchinese: invalid GBK encoding
+		return nil
+	}
+
+	return sorbody
 }
 
 func request(rawurl string) *goquery.Document {
@@ -29,34 +39,19 @@ func request(rawurl string) *goquery.Document {
 	}
 	defer response.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Printf("ioutil.ReadAll failed!, %s\n", rawurl)
+	// FIXME : index out of range
+
+	content := response.Header["Content-Type"]
+	if len(content) == 0 {
+		log.Printf("No Content-Type!, %s\n", rawurl)
 		return nil
 	}
-
-	// Content-Type and charset from Header
-	contentType := response.Header["Content-Type"]
-	content, encoding := contentAndEncoding(contentType[0])
-
-	if content == "" {
-		log.Printf("content == `` %s\n", rawurl)
-		return nil
-	} else if content != "text/html" {
-		log.Printf("%s %s\n", content, rawurl)
+	bodyBytes := changeCharsetEncodingAuto(content[0], response.Body)
+	if bodyBytes == nil {
+		log.Printf("Convert encoding failed!, %s\n", rawurl)
 		return nil
 	}
-
-	if encoding == "" {
-		doc := newDoc(bodyBytes, rawurl)
-		encoding = charsetInHTML(doc)
-		if encoding == "" {
-			return doc
-		}
-	}
-	bodyStr := convertStr(string(bodyBytes), encoding, "utf-8")
-	log.Println(bodyStr)
-	doc := newDoc([]byte(bodyStr), rawurl)
+	doc := newDoc(bodyBytes, rawurl)
 
 	return doc
 }

@@ -10,7 +10,7 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	defer wg.Done()
 
 	if depth > maxDepth {
-		log.Println("reach maxDepth")
+		// log.Println("reach maxDepth")
 		return
 	}
 
@@ -34,7 +34,7 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	log.Printf("%d %s\n", depth, getTitle(doc))
 
 	urlCount := getLinks(doc)
-	log.Printf("total urls: %v\n", len(urlCount))
+	// log.Printf("total urls: %v\n", len(urlCount))
 
 	for url2 := range urlCount {
 		wg.Add(1)
@@ -83,7 +83,7 @@ func main() {
 
 	// rawurl := "http://www.163.com"
 	depth := 0
-	maxDepth := 3
+	maxDepth := 2
 
 	wg.Add(1)
 	go processLink(&wg, rawurl, depth, maxDepth)

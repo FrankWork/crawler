@@ -64,12 +64,12 @@ func getTitle(doc *goquery.Document) string {
 
 func getLinks(doc *goquery.Document) map[string]int {
 	urlCount := make(map[string]int)
-	log.Println("=======================")
+	// log.Println("=======================")
 	// log.Println(doc.Text())
 	doc.Find("a").Each(func(index int, sel *goquery.Selection) {
 		url, exists := sel.Attr("href")
 		url = strings.Trim(url, " \t\n")
-		log.Println(url)
+		// log.Println(url)
 		if !exists {
 			return
 		}
