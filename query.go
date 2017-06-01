@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"log"
 	"regexp"
 
@@ -12,6 +13,20 @@ import (
 
 var regx = regexp.MustCompile(`(.+?);? ?(charset=(.+))?$`)
 
+func newDocFromByte(body []byte, url string) *goquery.Document {
+	reader := bytes.NewReader(body)
+	return newDocFromReader(reader, url)
+}
+
+func newDocFromReader(reader io.Reader, url string) *goquery.Document {
+	doc, err := goquery.NewDocumentFromReader(reader)
+	if err != nil {
+		log.Printf("goquery.NewDocumentFromReader(reader) failed! : %s\n", url)
+		return nil
+	}
+	return doc
+}
+
 func contentAndEncoding(contentType string) (string, string) {
 	result := regx.FindAllStringSubmatch(contentType, 3)
 
@@ -19,17 +34,6 @@ func contentAndEncoding(contentType string) (string, string) {
 	content := result[0][1]
 	encoding := result[0][3]
 	return content, encoding
-}
-
-func newDoc(body []byte, url string) *goquery.Document {
-	reader := bytes.NewReader(body)
-
-	doc, err := goquery.NewDocumentFromReader(reader)
-	if err != nil {
-		log.Printf("goquery.NewDocumentFromReader(reader) failed! : %s\n", url)
-		log.Fatal(err)
-	}
-	return doc
 }
 
 func charsetInHTML(doc *goquery.Document) string {

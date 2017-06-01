@@ -6,29 +6,24 @@ import (
 	"log"
 	"net/http"
 
+	"bytes"
+
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html/charset"
 )
 
-// Charset auto determine. Use golang.org/x/net/html/charset. Get page body and change it to utf-8
-func changeCharsetEncodingAuto(contentTypeStr string, sor io.ReadCloser) []byte {
-	var err error
-	destReader, err := charset.NewReader(sor, contentTypeStr)
-
+func convert(encoding string, bodyReader io.Reader) []byte {
+	reader, err := charset.NewReaderLabel(encoding, bodyReader)
 	if err != nil {
 		log.Println(err.Error())
-		destReader = sor
-	}
-
-	var sorbody []byte
-	if sorbody, err = ioutil.ReadAll(destReader); err != nil {
-		log.Println(err.Error())
-		// For gb2312, an error will be returned.
-		// Error like: simplifiedchinese: invalid GBK encoding
 		return nil
 	}
-
-	return sorbody
+	bodyBytes, err := ioutil.ReadAll(reader)
+	if err != nil {
+		log.Println(err.Error())
+		return nil
+	}
+	return bodyBytes
 }
 
 func request(rawurl string) *goquery.Document {
@@ -41,17 +36,50 @@ func request(rawurl string) *goquery.Document {
 
 	// FIXME : index out of range
 
-	content := response.Header["Content-Type"]
-	if len(content) == 0 {
+	contentType := response.Header["Content-Type"]
+	if len(contentType) == 0 {
 		log.Printf("No Content-Type!, %s\n", rawurl)
 		return nil
 	}
-	bodyBytes := changeCharsetEncodingAuto(content[0], response.Body)
+
+	content, encoding := contentAndEncoding(contentType[0])
+	if content == "" {
+		log.Printf("Empty Content-Type!, %s\n", rawurl)
+		return nil
+	} else if content != "text/html" {
+		log.Printf("Not html: %s, %s\n", content, rawurl)
+		return nil
+	}
+
+	var bodyBytes []byte
+	bodyBytes, err = ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("ioutil.ReadAll(response.Body) failed!, %s\n", rawurl)
+		return nil
+	}
+
+	if encoding == "utf-8" {
+		doc := newDocFromByte(bodyBytes, rawurl)
+		return doc
+	} else if encoding == "" {
+		doc := newDocFromByte(bodyBytes, rawurl)
+		encoding = charsetInHTML(doc)
+		if encoding == "" {
+			log.Printf("No encoding!, %s\n", rawurl)
+			return nil
+		}
+	}
+
+	if encoding == "utf-8" {
+		doc := newDocFromByte(bodyBytes, rawurl)
+		return doc
+	}
+	bodyBytes = convert(encoding, bytes.NewReader(bodyBytes))
 	if bodyBytes == nil {
 		log.Printf("Convert encoding failed!, %s\n", rawurl)
 		return nil
 	}
-	doc := newDoc(bodyBytes, rawurl)
+	doc := newDocFromByte(bodyBytes, rawurl)
 
 	return doc
 }

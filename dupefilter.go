@@ -33,12 +33,12 @@ func isDuplicate(conn ResourceConn, rawURL string) bool {
 
 func isDuplicateDebug(conn ResourceConn, rawURL string) bool {
 	_, urlfp := hostAndFingerPrint(rawURL)
-	return redisSISMember(conn, "www.163.com", urlfp)
+	return redisSISMember(conn, "2.163.com", urlfp)
 }
 
 func maskDupURLDebug(conn ResourceConn, rawURL string) bool {
 	_, urlfp := hostAndFingerPrint(rawURL)
-	return redisSADD(conn, "www.163.com", urlfp)
+	return redisSADD(conn, "2.163.com", urlfp)
 }
 
 func maskDupURL(conn ResourceConn, rawURL string) bool {

@@ -30,11 +30,13 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 
 	// maskDupURL(conn, url)
 	maskDupURLDebug(conn, url)
-	// log.Printf("%d %s %s\n", depth, getTitle(doc), url)
-	log.Printf("%d %s\n", depth, getTitle(doc))
+	log.Printf("%d %s %s\n", depth, getTitle(doc), url)
+	// log.Printf("%d %s\n", depth, getTitle(doc))
 
 	urlCount := getLinks(doc)
-	// log.Printf("total urls: %v\n", len(urlCount))
+	if len(urlCount) == 0 {
+		log.Printf("no links: %s\n", url)
+	}
 
 	for url2 := range urlCount {
 		wg.Add(1)
@@ -42,8 +44,26 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	}
 }
 
-func main() {
+func downloadOnePage() {
+	url := "http://mtj.163.com/?from=nietop"
+	// url := "http://www.163.com"
+
+	doc := request(url)
+
+	if doc == nil {
+
+	}
+	html, err := doc.Html()
+	if err != nil {
+
+	}
+	log.Println(html)
+}
+func main_() {
 	// benchmarkMain()
+	downloadOnePage()
+}
+func main() {
 	reset := flag.String("reset", "false", "whther to reset")
 	flag.Parse()
 
@@ -61,8 +81,8 @@ func main() {
 	}
 
 	// ========== encoding error ===========
-	// rawurl := "http://x3.163.com/"
-	// http://x3.cbg.163.com/
+	// rawurl := "http://mtj.163.com/?from=nietop" // gb2312
+	// http://x3.163.com/2015/cloud/
 
 	// ========== read error ===============
 	// rawurl := "http://v.163.com/open/"
@@ -83,12 +103,11 @@ func main() {
 
 	// rawurl := "http://www.163.com"
 	depth := 0
-	maxDepth := 2
+	maxDepth := 1
 
 	wg.Add(1)
 	go processLink(&wg, rawurl, depth, maxDepth)
 
 	wg.Wait()
 	// storage()
-
 }
