@@ -35,8 +35,6 @@ func request(rawurl string) *goquery.Document {
 	}
 	defer response.Body.Close()
 
-	// FIXME : index out of range
-
 	contentType := response.Header["Content-Type"]
 	if len(contentType) == 0 {
 		log.Printf("No Content-Type!, %s\n", rawurl)
