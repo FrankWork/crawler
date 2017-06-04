@@ -21,7 +21,7 @@ func processDoc(wg *sync.WaitGroup, rw *RequestWrapper, maxDepth int) {
 	defer RedisResourcePool.Put(resource)
 
 	url := rw.request.URL.String()
-	if isDuplicateSet(conn, url) {
+	if isDuplicateDebug(conn, url) {
 		// log.Printf("URL: %v is duplicate\n", url)
 		return
 	}
@@ -31,8 +31,8 @@ func processDoc(wg *sync.WaitGroup, rw *RequestWrapper, maxDepth int) {
 		return
 	}
 	// maskDupURL(conn, url)
-	// maskDupURLDebug(conn, url)
-	maskDupURLSet(conn, url)
+	maskDupURLDebug(conn, url)
+	// maskDupURLSet(conn, url)
 	// $ ./crawler > log.txt
 	fmt.Printf("%d %s %s\n", depth, getTitle(doc), url)
 	// log.Printf("%d %s\n", depth, getTitle(doc))

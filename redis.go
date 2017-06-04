@@ -147,3 +147,27 @@ func redisDEL(key string) bool {
 
 	return false
 }
+
+func redisLPUSH(conn ResourceConn, key string, value string) bool {
+	ret, err := redis.Int(conn.Do("LPUSH", key, value))
+	if err != nil {
+		log.Fatal("redis LPUSH failed: ", err)
+	}
+
+	if ret == 1 {
+		// successfully
+		return true
+	}
+
+	return false
+}
+
+func redisRPOP(conn ResourceConn, key string) string {
+	ret, err := redis.String(conn.Do("RPOP", key))
+	if err != nil {
+		log.Fatal("redis RPOP failed: ", err)
+		return ""
+	}
+
+	return ret
+}

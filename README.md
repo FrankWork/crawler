@@ -1,27 +1,29 @@
+# benchmark
+
+url :"http://open.163.com"
+maxDepth : 1 
+
 ## dup links by reids
 
-real	3m10.651s
-user	0m3.356s
-sys	0m0.428s
+real	1m11.614s
+user	0m3.564s
+sys	0m0.352s
 
-real	4m51.528s
-user	0m3.384s
-sys	0m0.348s
+mutex
+
+real	2m33.347s
+user	0m3.680s
+sys	0m0.368s
 
 
 ## dup links by map
-real	1m33.768s
-user	0m3.308s
-sys	0m0.328s
-
-
-real	2m17.963s
-user	0m3.332s
-sys	0m0.300s
-
-
-# scheduler
 
 real	0m30.619s
 user	0m3.256s
 sys	0m0.236s
+
+mutex
+
+real	1m7.696s
+user	0m3.520s
+sys	0m0.384s
