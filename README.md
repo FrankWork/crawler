@@ -20,3 +20,8 @@ user	0m3.332s
 sys	0m0.300s
 
 
+# scheduler
+
+real	0m30.619s
+user	0m3.256s
+sys	0m0.236s

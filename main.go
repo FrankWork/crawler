@@ -1,15 +1,17 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"sync"
 )
 
-func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
-	defer wg.Done()
+func processDoc(wg *sync.WaitGroup, rw *RequestWrapper, maxDepth int) {
+	if wg != nil {
+		defer wg.Done()
+	}
 
+	depth := rw.depth
 	if depth > maxDepth {
 		// log.Println("reach maxDepth")
 		return
@@ -18,20 +20,20 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	conn, resource := redisPoolConnect()
 	defer RedisResourcePool.Put(resource)
 
+	url := rw.request.URL.String()
 	if isDuplicateSet(conn, url) {
 		// log.Printf("URL: %v is duplicate\n", url)
 		return
 	}
 
-	doc := request(url)
-
+	doc := request(rw)
 	if doc == nil {
 		return
 	}
-
 	// maskDupURL(conn, url)
 	// maskDupURLDebug(conn, url)
 	maskDupURLSet(conn, url)
+	// $ ./crawler > log.txt
 	fmt.Printf("%d %s %s\n", depth, getTitle(doc), url)
 	// log.Printf("%d %s\n", depth, getTitle(doc))
 
@@ -39,10 +41,9 @@ func processLink(wg *sync.WaitGroup, url string, depth int, maxDepth int) {
 	if len(urlCount) == 0 {
 		log.Printf("no links: %s\n", url)
 	}
-
-	for url2 := range urlCount {
-		wg.Add(1)
-		go processLink(wg, url2, depth+1, maxDepth)
+	for newurl := range urlCount {
+		newRW := NewRequestWrapper(newurl, depth+1)
+		requestQueue.enqueue(newRW)
 	}
 }
 
@@ -50,7 +51,8 @@ func downloadOnePage() {
 	url := "http://mtj.163.com/?from=nietop"
 	// url := "http://www.163.com"
 
-	doc := request(url)
+	rw := NewRequestWrapper(url, 0)
+	doc := request(rw)
 
 	if doc == nil {
 
@@ -61,54 +63,47 @@ func downloadOnePage() {
 	}
 	log.Println(html)
 }
-func main_() {
-	// benchmarkMain()
-	downloadOnePage()
-}
+
 func main() {
-	reset := flag.String("reset", "false", "whther to reset")
-	flag.Parse()
+	// benchmarkMain()
+	// downloadOnePage()
 
-	var wg sync.WaitGroup
+	// reset := flag.String("reset", "false", "whther to reset")
+	// flag.Parse()
+	// if *reset == "true" {
+	// 	if redisDEL("www.163.com") {
+	// 		log.Println("reset success")
+	// 	} else {
+	// 		log.Println("reset failed")
+	// 	}
+	// 	return
+	// }
 
-	defer RedisResourcePool.Close()
-
-	if *reset == "true" {
-		if redisDEL("www.163.com") {
-			log.Println("reset success")
-		} else {
-			log.Println("reset failed")
-		}
-		return
-	}
-
-	// ========== encoding error ===========
 	// rawurl := "http://mtj.163.com/?from=nietop" // gb2312
-	// http://x3.163.com/2015/cloud/
-
-	// ========== read error ===============
-	// rawurl := "http://v.163.com/open/"
-	rawurl := "http://open.163.com"
+	rawurl := "http://open.163.com" // read error
 	// rawurl := "http://open.163.com/movie/2017/5/U/1/MCK194LGV_MCK196RU1.html"
-	// http://open.163.com/movie/2017/5/H/T/MCKH42S7I_MCKH5A2HT.html
-	// http://open.163.com/movie/2017/5/M/A/MCK3SQQP8_MCK3T2RMA.html
-	// http://open.163.com/#f=topnav
-	// http://mhws.163.com/?from=nietop
-	// http://bz.163.com/?from=nietop
-
-	// ========== server shutdown ===============
-	// rawurl := "http://xdw.zhidao.163.com?from=index"
-	// http://g.163.com/a?CID=49141&Values=132441315&Redirect=http://www.elianhong.com/zhuanti/ucsd/index.html
-
-	// ========== image ===============
+	// rawurl := "http://xdw.zhidao.163.com?from=index"//server shutdown
 	// http://img2.cache.netease.com/f2e/www/index2014/images/cert.png // image
-
 	// rawurl := "http://www.163.com"
+
 	depth := 0
 	maxDepth := 1
 
-	wg.Add(1)
-	go processLink(&wg, rawurl, depth, maxDepth)
+	var wg sync.WaitGroup
+	defer RedisResourcePool.Close()
+
+	// init url
+	rw := NewRequestWrapper(rawurl, depth)
+	if rw != nil {
+		requestQueue.enqueue(rw)
+	}
+	processDoc(nil, rw, maxDepth)
+
+	for !requestQueue.isEmpty() {
+		rw := requestQueue.dequeue()
+		wg.Add(1)
+		go processDoc(&wg, rw, maxDepth)
+	}
 
 	wg.Wait()
 	// storage()

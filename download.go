@@ -12,7 +12,15 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
-func convert(encoding string, bodyReader io.Reader) []byte {
+var client *http.Client
+
+func init() {
+	client = &http.Client{
+	// CheckRedirect: redirectPolicyFunc,
+	}
+}
+
+func convertEncoding(encoding string, bodyReader io.Reader) []byte {
 	reader, err := charset.NewReaderLabel(encoding, bodyReader)
 	if err != nil {
 		log.Println(err.Error())
@@ -27,12 +35,21 @@ func convert(encoding string, bodyReader io.Reader) []byte {
 	return bodyBytes
 }
 
-func request(rawurl string) *goquery.Document {
-	response, err := http.Get(rawurl)
+func request(rw *RequestWrapper) *goquery.Document {
+	rawurl := rw.request.URL.String()
+	request := rw.request
+
+	response, err := client.Do(request)
 	if err != nil {
 		log.Printf("http get failed!, %s\n", rawurl)
 		return nil
 	}
+
+	// response, err := http.Get(rawurl)
+	// if err != nil {
+	// 	log.Printf("http get failed!, %s\n", rawurl)
+	// 	return nil
+	// }
 	defer response.Body.Close()
 
 	contentType := response.Header["Content-Type"]
@@ -73,7 +90,7 @@ func request(rawurl string) *goquery.Document {
 		doc := newDocFromByte(bodyBytes, rawurl)
 		return doc
 	}
-	bodyBytes = convert(encoding, bytes.NewReader(bodyBytes))
+	bodyBytes = convertEncoding(encoding, bytes.NewReader(bodyBytes))
 	if bodyBytes == nil {
 		log.Printf("Convert encoding failed!, %s\n", rawurl)
 		return nil
