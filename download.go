@@ -35,9 +35,13 @@ func convertEncoding(encoding string, bodyReader io.Reader) []byte {
 	return bodyBytes
 }
 
-func request(rw *RequestWrapper) *goquery.Document {
-	rawurl := rw.request.URL.String()
-	request := rw.request
+func request(uw *URLWrapper) *goquery.Document {
+	rawurl := uw.RawURL
+	request, err := http.NewRequest("GET", rawurl, nil)
+	if err != nil {
+		log.Printf("new request failed!, %s\n", rawurl)
+		return nil
+	}
 
 	response, err := client.Do(request)
 	if err != nil {

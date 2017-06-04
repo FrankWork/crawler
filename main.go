@@ -6,12 +6,12 @@ import (
 	"sync"
 )
 
-func processDoc(wg *sync.WaitGroup, rw *RequestWrapper, maxDepth int) {
+func processDoc(wg *sync.WaitGroup, uw *URLWrapper, maxDepth int) {
 	if wg != nil {
 		defer wg.Done()
 	}
 
-	depth := rw.depth
+	depth := uw.Depth
 	if depth > maxDepth {
 		// log.Println("reach maxDepth")
 		return
@@ -20,13 +20,13 @@ func processDoc(wg *sync.WaitGroup, rw *RequestWrapper, maxDepth int) {
 	conn, resource := redisPoolConnect()
 	defer RedisResourcePool.Put(resource)
 
-	url := rw.request.URL.String()
+	url := uw.RawURL
 	if isDuplicateDebug(conn, url) {
 		// log.Printf("URL: %v is duplicate\n", url)
 		return
 	}
 
-	doc := request(rw)
+	doc := request(uw)
 	if doc == nil {
 		return
 	}
@@ -42,26 +42,26 @@ func processDoc(wg *sync.WaitGroup, rw *RequestWrapper, maxDepth int) {
 		log.Printf("no links: %s\n", url)
 	}
 	for newurl := range urlCount {
-		newRW := NewRequestWrapper(newurl, depth+1)
-		requestQueue.enqueue(newRW)
+		newuw := NewURLWrapper(newurl, depth+1)
+		urlQueue.enqueue(newuw)
 	}
 }
 
 func downloadOnePage() {
-	url := "http://mtj.163.com/?from=nietop"
-	// url := "http://www.163.com"
+	// url := "http://mtj.163.com/?from=nietop"
+	// // url := "http://www.163.com"
 
-	rw := NewRequestWrapper(url, 0)
-	doc := request(rw)
+	// rw := NewRequestWrapper(url, 0)
+	// doc := request(rw)
 
-	if doc == nil {
+	// if doc == nil {
 
-	}
-	html, err := doc.Html()
-	if err != nil {
+	// }
+	// html, err := doc.Html()
+	// if err != nil {
 
-	}
-	log.Println(html)
+	// }
+	// log.Println(html)
 }
 
 func main() {
@@ -93,16 +93,16 @@ func main() {
 	defer RedisResourcePool.Close()
 
 	// init url
-	rw := NewRequestWrapper(rawurl, depth)
-	if rw != nil {
-		requestQueue.enqueue(rw)
+	uw := NewURLWrapper(rawurl, depth)
+	if uw != nil {
+		urlQueue.enqueue(uw)
 	}
-	processDoc(nil, rw, maxDepth)
+	processDoc(nil, uw, maxDepth)
 
-	for !requestQueue.isEmpty() {
-		rw := requestQueue.dequeue()
+	for !urlQueue.isEmpty() {
+		uw := urlQueue.dequeue()
 		wg.Add(1)
-		go processDoc(&wg, rw, maxDepth)
+		go processDoc(&wg, uw, maxDepth)
 	}
 
 	wg.Wait()

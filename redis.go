@@ -53,8 +53,20 @@ func redisPoolConnect() (ResourceConn, pools.Resource) {
 	}
 	// defer RedisResourcePool.Put(resource)
 	conn := resource.(ResourceConn)
-
+	redisAUTH(conn, "")
 	return conn, resource
+}
+
+func redisAUTH(conn ResourceConn, passwd string) bool {
+	value, err := redis.Int(conn.Do("AUTH", passwd))
+	if err != nil {
+		log.Fatal("redis AUTH failed: ", err)
+	}
+
+	if value == 1 {
+		return true
+	}
+	return false
 }
 
 func redisConnect() redis.Conn {
