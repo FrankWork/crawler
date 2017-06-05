@@ -8,6 +8,8 @@ import (
 
 	"strings"
 
+	"net/url"
+
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -18,12 +20,19 @@ func newDocFromByte(body []byte, url string) *goquery.Document {
 	return newDocFromReader(reader, url)
 }
 
-func newDocFromReader(reader io.Reader, url string) *goquery.Document {
+func newDocFromReader(reader io.Reader, rawurl string) *goquery.Document {
 	doc, err := goquery.NewDocumentFromReader(reader)
 	if err != nil {
-		log.Printf("goquery.NewDocumentFromReader(reader) failed! : %s\n", url)
+		log.Printf("goquery.NewDocumentFromReader(reader) failed! : %s\n", rawurl)
 		return nil
 	}
+	urlPointer, err := url.Parse(rawurl)
+	if err != nil {
+		log.Printf("url.Parse failed in newDocFromReader! : %s\n", rawurl)
+		return nil
+	}
+	doc.Url = urlPointer
+
 	return doc
 }
 
@@ -67,33 +76,49 @@ func getTitle(doc *goquery.Document) string {
 }
 
 func getLinks(doc *goquery.Document) map[string]int {
+	// fmt.Println(doc.Url.String())
+
 	urlCount := make(map[string]int)
 	// log.Println("=======================")
 	// log.Println(doc.Text())
 	doc.Find("a").Each(func(index int, sel *goquery.Selection) {
-		url, exists := sel.Attr("href")
-		url = strings.Trim(url, " \t\n")
-		// log.Println(url)
+		rawurl, exists := sel.Attr("href")
+		rawurl = strings.Trim(rawurl, " \t\n")
+		// log.Println(rawurl)
 		if !exists {
 			return
 		}
-		if len(url) == 0 || url == "#" || strings.ContainsAny(url, "{}") {
+		if len(rawurl) == 0 || rawurl == "#" || strings.ContainsAny(rawurl, "{}") {
 			return
 		}
-		if strings.Index(url, "javascript") == 0 || strings.Index(url, "mailto:") == 0 {
+		if strings.Index(rawurl, "javascript") == 0 || strings.Index(rawurl, "mailto:") == 0 {
 			return
 		}
-		if strings.Index(url, "http") != 0 {
-			// TODO join, redirect
-			// fmt.Printf("\tindex(http)!=0 %s\n", url)
+		if strings.Index(rawurl, "tel:") == 0 {
 			return
 		}
-		if strings.Index(url, "http") == 0 && !(strings.Contains(url, "163.com") || strings.Contains(url, "netease.com")) {
-			// 126.com, youdao.com
-			// fmt.Printf("\tout of domain %s\n", url)
+
+		// resolve relative url path
+		urlPointer, err := url.Parse(rawurl)
+		if err != nil {
+			log.Printf("url.Parse failed: %s\n", rawurl)
 			return
 		}
-		urlCount[url]++
+		urlPointer = doc.Url.ResolveReference(urlPointer)
+		rawurl = urlPointer.String()
+
+		domainCount := 0
+		for idx := range domains {
+			if strings.Contains(rawurl, domains[idx]) {
+				domainCount++
+			}
+		}
+		if domainCount == 0 {
+			// log.Printf("out of domain: %s\n", rawurl)
+			return
+		}
+
+		urlCount[rawurl]++
 	})
 
 	return urlCount

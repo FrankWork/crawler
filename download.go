@@ -45,7 +45,7 @@ func request(uw *URLWrapper) *goquery.Document {
 
 	response, err := client.Do(request)
 	if err != nil {
-		log.Printf("http get failed!, %s\n", rawurl)
+		log.Printf("http get failed: %v, %s\n", err, rawurl)
 		return nil
 	}
 

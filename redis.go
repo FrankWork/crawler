@@ -29,6 +29,7 @@ var (
 )
 
 func init() {
+	// TODO
 	RedisHost = "localhost:6379"
 	RedisDb = 0
 
@@ -53,7 +54,7 @@ func redisPoolConnect() (ResourceConn, pools.Resource) {
 	}
 	// defer RedisResourcePool.Put(resource)
 	conn := resource.(ResourceConn)
-	redisAUTH(conn, "")
+	// redisAUTH(conn, "")
 	return conn, resource
 }
 
