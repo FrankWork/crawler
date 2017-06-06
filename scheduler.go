@@ -69,9 +69,12 @@ func (q *URLQueue) enqueue(r *URLWrapper) {
 func (q *URLQueue) dequeue() *URLWrapper {
 	defer lock.Unlock()
 	lock.Lock()
-	r := q.List.Front()
-	q.List.Remove(r)
-	return r.Value.(*URLWrapper)
+	if q.List.Len() > 0 {
+		r := q.List.Front()
+		q.List.Remove(r)
+		return r.Value.(*URLWrapper)
+	}
+	return nil
 }
 func (q *URLQueue) isEmpty() bool {
 	defer lock.Unlock()

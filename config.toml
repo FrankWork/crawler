@@ -1,0 +1,10 @@
+#   http://xf.house.163.com/bj/0RCG.html#lpk-lpxxzc-ss // No encoding!
+# 	rawurl := "http://music.163.com" // html codes
+# 	rawurl := "http://g.qq.com?ADTAG=pcqq.home.sidenav" // connection reset by peer
+# 	rawurl := "http://www.163.com"
+# 	rawurl := "http://www.qq.com"
+# 	rawurl := "http://www.baidu.com"
+StartURLs = ["http://music.163.com"]
+
+Domains = ["163.com"]
+MaxDepth = 1

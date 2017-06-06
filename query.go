@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"io"
 	"log"
-	"regexp"
-
-	"strings"
-
 	"net/url"
+	"regexp"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -40,6 +38,9 @@ func contentAndEncoding(contentType string) (string, string) {
 	result := regx.FindAllStringSubmatch(contentType, 3)
 
 	//[[text/html; charset=utf-8 text/html charset=utf-8 utf-8]]
+	if len(result) == 0 {
+		return "", ""
+	}
 	content := result[0][1]
 	encoding := result[0][3]
 	return content, encoding
@@ -76,25 +77,20 @@ func getTitle(doc *goquery.Document) string {
 }
 
 func getLinks(doc *goquery.Document) map[string]int {
-	// fmt.Println(doc.Url.String())
-
 	urlCount := make(map[string]int)
-	// log.Println("=======================")
-	// log.Println(doc.Text())
+
 	doc.Find("a").Each(func(index int, sel *goquery.Selection) {
 		rawurl, exists := sel.Attr("href")
-		rawurl = strings.Trim(rawurl, " \t\n")
-		// log.Println(rawurl)
 		if !exists {
 			return
 		}
-		if len(rawurl) == 0 || rawurl == "#" || strings.ContainsAny(rawurl, "{}") {
-			return
-		}
-		if strings.Index(rawurl, "javascript") == 0 || strings.Index(rawurl, "mailto:") == 0 {
-			return
-		}
-		if strings.Index(rawurl, "tel:") == 0 {
+
+		rawurl = strings.Trim(rawurl, " \t\n")
+		if len(rawurl) == 0 || rawurl == "#" ||
+			strings.ContainsAny(rawurl, "{}") ||
+			0 == strings.Index(rawurl, "javascript") ||
+			0 == strings.Index(rawurl, "mailto:") ||
+			0 == strings.Index(rawurl, "tel:") {
 			return
 		}
 
@@ -108,8 +104,8 @@ func getLinks(doc *goquery.Document) map[string]int {
 		rawurl = urlPointer.String()
 
 		domainCount := 0
-		for idx := range domains {
-			if strings.Contains(rawurl, domains[idx]) {
+		for _, domain := range cfg.Domains {
+			if strings.Contains(rawurl, domain) {
 				domainCount++
 			}
 		}
