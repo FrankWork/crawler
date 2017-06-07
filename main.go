@@ -7,7 +7,6 @@ import (
 	"path"
 	"runtime"
 	"sync"
-
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -23,6 +22,7 @@ type Config struct {
 	StartURLs            []string
 	Domains              []string
 	MaxDepth             int
+	Distributed          bool
 	RedisPoolCapacity    int
 	RedisPoolMaxCapacity int
 	RedisPoolIdleTimeout Duration

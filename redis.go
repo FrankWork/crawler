@@ -161,3 +161,13 @@ func redisRPOP(conn ResourceConn, key string) string {
 
 	return ret
 }
+
+func redisLLen(conn ResourceConn, key string) int {
+	ret, err := redis.Int(conn.Do("LLen", key))
+	if err != nil {
+		log.Fatal("redis LLen failed: ", err)
+		return 0
+	}
+
+	return ret
+}

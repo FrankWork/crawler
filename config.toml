@@ -12,3 +12,5 @@ MaxDepth = 1
 RedisPoolCapacity = 1
 RedisPoolMaxCapacity = 10
 RedisPoolIdleTimeout = "1m"
+
+Distributed = false

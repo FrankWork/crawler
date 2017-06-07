@@ -51,20 +51,31 @@ func deserialize(hexStr string) *URLWrapper {
 	return uw
 }
 
-// URLQueue : Local URL Messaging Queue
-// list.List is not concurrent safe
-type URLQueue struct {
-	List *list.List
+type Queue interface {
+	enqueue(uw *URLWrapper)
+	dequeue() *URLWrapper
+	isEmpty() bool
 }
 
-func (q *URLQueue) enqueue(r *URLWrapper) {
-	defer lock.Unlock()
-	lock.Lock()
+// URLQueueLocal : Local URL Messaging Queue
+// list.List is not concurrent safe
+type URLQueueLocal struct {
+	List *list.List
+	lock *sync.Mutex
+}
+
+func NewURLQueueLocal() *URLQueueLocal {
+	return &URLQueueLocal{list.New(), new(sync.Mutex)}
+}
+
+func (q *URLQueueLocal) enqueue(r *URLWrapper) {
+	defer q.lock.Unlock()
+	q.lock.Lock()
 	q.List.PushBack(r)
 }
-func (q *URLQueue) dequeue() *URLWrapper {
-	defer lock.Unlock()
-	lock.Lock()
+func (q *URLQueueLocal) dequeue() *URLWrapper {
+	defer q.lock.Unlock()
+	q.lock.Lock()
 	if q.List.Len() > 0 {
 		r := q.List.Front()
 		q.List.Remove(r)
@@ -72,27 +83,46 @@ func (q *URLQueue) dequeue() *URLWrapper {
 	}
 	return nil
 }
-func (q *URLQueue) isEmpty() bool {
-	defer lock.Unlock()
-	lock.Lock()
+func (q *URLQueueLocal) isEmpty() bool {
+	defer q.lock.Unlock()
+	q.lock.Lock()
 	return q.List.Len() == 0
 }
 
-var urlQueue *URLQueue
-var lock sync.Mutex
+type URLQueueDistributed struct {
+	name string
+	conn ResourceConn
+}
 
-func init() {
-	urlQueue = &URLQueue{list.New()}
-
+func NewURLQueueDistributed(queName string, conn ResourceConn) *URLQueueDistributed {
+	return &URLQueueDistributed{queName, conn}
 }
 
 // URL Messaging Queue across internet
-func enqueue(uw *URLWrapper) {
-
+func (q *URLQueueDistributed) enqueue(uw *URLWrapper) {
+	uwStr := serialize(uw)
+	redisLPUSH(q.conn, q.name, uwStr)
 }
-func dequeue() *URLWrapper {
+func (q *URLQueueDistributed) dequeue() *URLWrapper {
+	uwStr := redisRPOP(q.conn, q.name)
+	if uwStr != "" {
+		return deserialize(uwStr)
+	}
 	return nil
 }
-func queueIsEmpty() bool {
-	return false
+func (q *URLQueueDistributed) isEmpty() bool {
+	n := redisLLen(q.conn, q.name)
+	return n == 0
+}
+
+var (
+	urlQueue Queue
+)
+
+func init() {
+	if cfg.Distributed {
+		urlQueue = NewURLQueueDistributed()
+	} else {
+		urlQueue = NewURLQueueLocal()
+	}
 }
