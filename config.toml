@@ -8,3 +8,7 @@ StartURLs = ["http://music.163.com"]
 
 Domains = ["163.com"]
 MaxDepth = 1
+
+RedisPoolCapacity = 1
+RedisPoolMaxCapacity = 10
+RedisPoolIdleTimeout = "1m"

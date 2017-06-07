@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"time"
 
 	"github.com/garyburd/redigo/redis"
 	"github.com/youtube/vitess/go/pools"
@@ -19,30 +18,24 @@ func (r ResourceConn) Close() {
 	r.Conn.Close()
 }
 
-var (
-	//RedisHost comment
-	RedisHost string
-	//RedisDb comment
-	RedisDb int
-	// RedisResourcePool is vitess pools wrapper of redigo conn
-	RedisResourcePool *pools.ResourcePool
-)
+var RedisResourcePool *pools.ResourcePool
 
 func init() {
-	// TODO
-	RedisHost = "localhost:6379"
-	RedisDb = 0
-
 	// Vitess pooling
 	factory := func() (pools.Resource, error) {
-		conn, err := redis.Dial("tcp", ":6379")
+		conn, err := redis.Dial(
+			"tcp",
+			auth.RedisHost,
+			redis.DialPassword(auth.RedisAuth),
+			redis.DialDatabase(auth.RedisDb))
 		return ResourceConn{conn}, err
 	}
-	capacity := 1
-	maxCap := 10
-	idleTimeout := time.Minute
 
-	RedisResourcePool = pools.NewResourcePool(factory, capacity, maxCap, idleTimeout)
+	RedisResourcePool = pools.NewResourcePool(
+		factory,
+		cfg.RedisPoolCapacity,
+		cfg.RedisPoolMaxCapacity,
+		cfg.RedisPoolIdleTimeout.Duration)
 
 }
 
@@ -52,9 +45,7 @@ func redisPoolConnect() (ResourceConn, pools.Resource) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// defer RedisResourcePool.Put(resource)
 	conn := resource.(ResourceConn)
-	// redisAUTH(conn, "")
 	return conn, resource
 }
 
@@ -70,15 +61,7 @@ func redisAUTH(conn ResourceConn, passwd string) bool {
 	return false
 }
 
-func redisConnect() redis.Conn {
-	conn, err := redis.Dial("tcp", "localhost:6379")
-	if err != nil {
-		log.Fatal("Connect to redis error", err)
-	}
-	return conn
-}
-
-func redisSET(conn redis.Conn, key string, value string) {
+func redisSET(conn ResourceConn, key string, value string) {
 	ok, err := conn.Do("set", key, value)
 	if err != nil {
 		log.Println("redis set failed: ", err)
@@ -88,10 +71,7 @@ func redisSET(conn redis.Conn, key string, value string) {
 	}
 }
 
-func redisGET(key string) {
-	conn := redisConnect()
-	defer conn.Close()
-
+func redisGET(conn ResourceConn, key string) {
 	value, err := redis.String(conn.Do("Get", key))
 	if err != nil {
 		log.Println("redis get failed: ", err)
@@ -144,10 +124,7 @@ func redisSREM(conn ResourceConn, key string, member string) bool {
 	return false
 }
 
-func redisDEL(key string) bool {
-	conn := redisConnect()
-	defer conn.Close()
-
+func redisDEL(conn ResourceConn, key string) bool {
 	value, err := redis.Int(conn.Do("Del", key))
 	if err != nil {
 		log.Fatal("redis SREM failed: ", err)

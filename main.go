@@ -14,13 +14,27 @@ import (
 )
 
 type Auth struct {
+	RedisHost string
+	RedisDb   int
 	RedisAuth string
 }
 
 type Config struct {
-	StartURLs []string
-	Domains   []string
-	MaxDepth  int
+	StartURLs            []string
+	Domains              []string
+	MaxDepth             int
+	RedisPoolCapacity    int
+	RedisPoolMaxCapacity int
+	RedisPoolIdleTimeout Duration
+}
+type Duration struct {
+	time.Duration //anonymous field
+}
+
+func (d *Duration) UnmarshalText(text []byte) error {
+	var err error
+	d.Duration, err = time.ParseDuration(string(text))
+	return err
 }
 
 var (

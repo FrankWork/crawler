@@ -9,19 +9,13 @@ import (
 	"sync"
 )
 
+// URLWrapper: store the parsed url and it's depth
 type URLWrapper struct {
 	RawURL string
 	Depth  int
 }
 
 func NewURLWrapper(rawurl string, depth int) *URLWrapper {
-	// request, err := http.NewRequest("GET", rawurl, nil)
-	// if err != nil {
-	// 	log.Printf("new request failed!, %s\n", rawurl)
-	// 	return nil
-	// }
-	// request.Header.Add("If-None-Match", `W/"wyzzy"`)
-	// request.Header.Add("depth", "1")
 	return &URLWrapper{rawurl, depth}
 }
 
@@ -29,6 +23,7 @@ func (r *URLWrapper) print() {
 	fmt.Println(r.RawURL, r.Depth)
 }
 
+// Serialize URLWrapper to store into a database or transport across internet
 func serialize(uw *URLWrapper) string {
 	var b = new(bytes.Buffer)
 	e := gob.NewEncoder(b)
@@ -56,7 +51,8 @@ func deserialize(hexStr string) *URLWrapper {
 	return uw
 }
 
-// RequestQueue : Request Messaging Queue
+// URLQueue : Local URL Messaging Queue
+// list.List is not concurrent safe
 type URLQueue struct {
 	List *list.List
 }
@@ -90,6 +86,7 @@ func init() {
 
 }
 
+// URL Messaging Queue across internet
 func enqueue(uw *URLWrapper) {
 
 }
