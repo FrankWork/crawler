@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/youtube/vitess/go/pools"
 )
 
 type Auth struct {
@@ -50,41 +49,45 @@ type Engine struct {
 	auth      Auth
 	urlQueue  Queue
 	dupFilter DuplicateURLFilter
-	redisPool *pools.ResourcePool
+	rc        *RedisClient
 }
 
-func (e *Engine) Init() {
+func NewEngine() *Engine {
 	// parse config and auth toml file
 	cwd := getExecutablePath()
+
 	var err error
+	var cfg Config
+	var auth Auth
 
-	cfg := &e.cfg
-	auth := &e.auth
-
-	if _, err = toml.DecodeFile(path.Join(cwd, "config.toml"), cfg); err != nil {
+	if _, err = toml.DecodeFile(path.Join(cwd, "config.toml"), &cfg); err != nil {
 		log.Println("toml.DecodeFile failed")
 		log.Printf("toml file path: %s\n", path.Join(cwd, "config.toml"))
 		panic(err)
 	}
 	fmt.Println("decode config.toml")
 
-	if _, err = toml.DecodeFile(path.Join(cwd, "auth.toml"), auth); err != nil {
+	if _, err = toml.DecodeFile(path.Join(cwd, "auth.toml"), &auth); err != nil {
 		log.Println("toml.DecodeFile failed")
 		log.Printf("toml file path: %s\n", path.Join(cwd, "auth.toml"))
 		panic(err)
 	}
 
-	if cfg.Distributed {
-		fmt.Println("Distribute")
-		e.dupFilter = NewDuplicateURLFilterDistribute("defaultKey")
-		e.urlQueue = NewURLQueueDistributed("urlQueue")
-	} else {
-		fmt.Println("Local")
-		e.dupFilter = NewDuplicateURLFilterLocal()
-		e.urlQueue = NewURLQueueLocal()
-	}
-	e.redisPool = NewRedisPool(auth.RedisHost, auth.RedisAuth, auth.RedisDb,
+	rc := NewRedisClient(auth.RedisHost, auth.RedisAuth, auth.RedisDb,
 		cfg.RedisPoolCapacity, cfg.RedisPoolMaxCapacity,
 		cfg.RedisPoolIdleTimeout.Duration)
 
+	var dupFilter DuplicateURLFilter
+	var urlQueue Queue
+
+	if cfg.Distributed {
+		fmt.Println("Distribute")
+		dupFilter = NewDuplicateURLFilterDistribute("defaultKey", rc)
+		urlQueue = NewURLQueueDistributed("urlQueue", rc)
+	} else {
+		fmt.Println("Local")
+		dupFilter = NewDuplicateURLFilterLocal()
+		urlQueue = NewURLQueueLocal()
+	}
+	return &Engine{cfg, auth, urlQueue, dupFilter, rc}
 }

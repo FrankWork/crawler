@@ -49,7 +49,9 @@ func parseDoc(wg *sync.WaitGroup, uw *URLWrapper, maxDepth int) {
 func main() {
 	// goroutine wait group and redis connection pool
 	var wg sync.WaitGroup
-	defer RedisResourcePool.Close()
+
+	engine := NewEngine()
+	defer engine.rc.Close()
 
 	// start requests
 	depth := 0

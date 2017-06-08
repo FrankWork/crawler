@@ -61,41 +61,33 @@ func (d *DuplicateURLFilterLocal) removeURL(rawurl string) {
 
 type DuplicateURLFilterDistribute struct {
 	defaultKey string
+	rc         *RedisClient
 }
 
-func NewDuplicateURLFilterDistribute(defaultKey string) *DuplicateURLFilterDistribute {
-	return &DuplicateURLFilterDistribute{defaultKey}
+func NewDuplicateURLFilterDistribute(defaultKey string, rc *RedisClient) *DuplicateURLFilterDistribute {
+	return &DuplicateURLFilterDistribute{defaultKey, rc}
 }
 
 func (d *DuplicateURLFilterDistribute) isDuplicate(rawurl string) bool {
-	conn, resource := redisPoolConnect()
-	defer RedisResourcePool.Put(resource)
-
 	host, urlfp := hostAndFingerPrint(rawurl)
 	if d.defaultKey != "" {
 		host = d.defaultKey
 	}
-	return redisSISMember(conn, host, urlfp)
+	return d.rc.SIsMember(host, urlfp)
 }
 
 func (d *DuplicateURLFilterDistribute) addURL(rawurl string) {
-	conn, resource := redisPoolConnect()
-	defer RedisResourcePool.Put(resource)
-
 	host, urlfp := hostAndFingerPrint(rawurl)
 	if d.defaultKey != "" {
 		host = d.defaultKey
 	}
-	redisSADD(conn, host, urlfp)
+	d.rc.SAdd(host, urlfp)
 }
 
 func (d *DuplicateURLFilterDistribute) removeURL(rawurl string) {
-	conn, resource := redisPoolConnect()
-	defer RedisResourcePool.Put(resource)
-
 	host, urlfp := hostAndFingerPrint(rawurl)
 	if d.defaultKey != "" {
 		host = d.defaultKey
 	}
-	redisSREM(conn, host, urlfp)
+	d.rc.SRem(host, urlfp)
 }

@@ -25,7 +25,7 @@ type RedisClient struct {
 	pool *pools.ResourcePool
 }
 
-func (rc *RedisClient) Init(host, auth string, db, cap, maxCap int, timeout time.Duration) {
+func NewRedisClient(host, auth string, db, cap, maxCap int, timeout time.Duration) *RedisClient {
 	// Vitess pooling
 	factory := func(pools.Resource, error) {
 		var conn redis.Conn
@@ -41,7 +41,8 @@ func (rc *RedisClient) Init(host, auth string, db, cap, maxCap int, timeout time
 
 		return ResourceConn{conn}, err
 	} // factory
-	rc.pool = pools.NewResourcePool(factory, cap, maxCap, timeout)
+	pool := pools.NewResourcePool(factory, cap, maxCap, timeout)
+	return RedisClient{pool}
 }
 
 func (rc *RedisClient) Close() {

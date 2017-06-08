@@ -90,34 +90,30 @@ func (q *URLQueueLocal) isEmpty() bool {
 
 type URLQueueDistributed struct {
 	name string
+	rc   *RedisClient
 }
 
-func NewURLQueueDistributed(name string) *URLQueueDistributed {
-	return &URLQueueDistributed{name}
+func NewURLQueueDistributed(name string, rc *RedisClient) *URLQueueDistributed {
+	return &URLQueueDistributed{name, rc}
 }
 
 // URL Messaging Queue across internet
 func (q *URLQueueDistributed) enqueue(uw *URLWrapper) {
-	conn, resource := redisPoolConnect()
-	defer RedisResourcePool.Put(resource)
-
 	uwStr := serialize(uw)
-	redisLPUSH(conn, q.name, uwStr)
+	q.rc.LPush(q.name, uwStr)
 }
-func (q *URLQueueDistributed) dequeue() *URLWrapper {
-	conn, resource := redisPoolConnect()
-	defer RedisResourcePool.Put(resource)
 
-	uwStr := redisRPOP(conn, q.name)
+// FIXME
+func (q *URLQueueDistributed) dequeue() *URLWrapper {
+	uwStr := q.rc.RPop(q.name)
 	if uwStr != "" {
 		return deserialize(uwStr)
 	}
 	return nil
 }
-func (q *URLQueueDistributed) isEmpty() bool {
-	conn, resource := redisPoolConnect()
-	defer RedisResourcePool.Put(resource)
 
-	n := redisLLen(conn, q.name)
+// FIXME
+func (q *URLQueueDistributed) isEmpty() bool {
+	n := q.rc.LLen(q.name)
 	return n == 0
 }
