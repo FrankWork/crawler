@@ -64,10 +64,6 @@ type URLQueueLocal struct {
 	lock *sync.Mutex
 }
 
-func NewURLQueueLocal() *URLQueueLocal {
-	return &URLQueueLocal{list.New(), new(sync.Mutex)}
-}
-
 func (q *URLQueueLocal) enqueue(r *URLWrapper) {
 	defer q.lock.Unlock()
 	q.lock.Lock()
@@ -91,27 +87,31 @@ func (q *URLQueueLocal) isEmpty() bool {
 
 type URLQueueDistributed struct {
 	name string
-	conn ResourceConn
-}
-
-func NewURLQueueDistributed(queName string, conn ResourceConn) *URLQueueDistributed {
-	return &URLQueueDistributed{queName, conn}
 }
 
 // URL Messaging Queue across internet
 func (q *URLQueueDistributed) enqueue(uw *URLWrapper) {
+	conn, resource := redisPoolConnect()
+	defer RedisResourcePool.Put(resource)
+
 	uwStr := serialize(uw)
-	redisLPUSH(q.conn, q.name, uwStr)
+	redisLPUSH(conn, q.name, uwStr)
 }
 func (q *URLQueueDistributed) dequeue() *URLWrapper {
-	uwStr := redisRPOP(q.conn, q.name)
+	conn, resource := redisPoolConnect()
+	defer RedisResourcePool.Put(resource)
+
+	uwStr := redisRPOP(conn, q.name)
 	if uwStr != "" {
 		return deserialize(uwStr)
 	}
 	return nil
 }
 func (q *URLQueueDistributed) isEmpty() bool {
-	n := redisLLen(q.conn, q.name)
+	conn, resource := redisPoolConnect()
+	defer RedisResourcePool.Put(resource)
+
+	n := redisLLen(conn, q.name)
 	return n == 0
 }
 
@@ -121,8 +121,8 @@ var (
 
 func init() {
 	if cfg.Distributed {
-		urlQueue = NewURLQueueDistributed()
+		urlQueue = &URLQueueDistributed{"urlQueue"}
 	} else {
-		urlQueue = NewURLQueueLocal()
+		urlQueue = &URLQueueLocal{list.New(), new(sync.Mutex)}
 	}
 }

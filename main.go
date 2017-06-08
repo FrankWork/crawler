@@ -74,24 +74,20 @@ func parseDoc(wg *sync.WaitGroup, uw *URLWrapper, maxDepth int) {
 		defer wg.Done()
 	}
 
-	conn, resource := redisPoolConnect()
-	defer RedisResourcePool.Put(resource)
-
 	url := uw.RawURL
-	if isDuplicateSet(conn, url) {
+	if dupFilter.isDuplicate(url) {
 		// log.Printf("URL: %v is duplicate\n", url)
 		return
 	}
 
 	doc := request(uw)
 	// fmt.Print(doc.Html())
-
 	if doc == nil {
 		return
 	}
-	// maskDupURL(conn, url)
-	maskDupURLSet(conn, url)
-	// maskDupURLSet(conn, url)
+
+	dupFilter.addURL(url)
+
 	// $ ./crawler > log.txt
 	// fmt.Printf("%d %s %s\n", depth, getTitle(doc), url)
 	fmt.Printf("%d %s\n", uw.Depth, getTitle(doc))

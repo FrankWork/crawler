@@ -23,11 +23,17 @@ var RedisResourcePool *pools.ResourcePool
 func init() {
 	// Vitess pooling
 	factory := func() (pools.Resource, error) {
-		conn, err := redis.Dial(
-			"tcp",
-			auth.RedisHost,
-			redis.DialPassword(auth.RedisAuth),
-			redis.DialDatabase(auth.RedisDb))
+		var conn redis.Conn
+		var err error
+
+		dbOpt := redis.DialDatabase(auth.RedisDb)
+		if auth.RedisAuth == "" {
+			conn, err = redis.Dial("tcp", auth.RedisHost, dbOpt)
+		} else {
+			authOpt := redis.DialPassword(auth.RedisAuth)
+			conn, err = redis.Dial("tcp", auth.RedisHost, authOpt, dbOpt)
+		}
+
 		return ResourceConn{conn}, err
 	}
 
@@ -47,18 +53,6 @@ func redisPoolConnect() (ResourceConn, pools.Resource) {
 	}
 	conn := resource.(ResourceConn)
 	return conn, resource
-}
-
-func redisAUTH(conn ResourceConn, passwd string) bool {
-	value, err := redis.Int(conn.Do("AUTH", passwd))
-	if err != nil {
-		log.Fatal("redis AUTH failed: ", err)
-	}
-
-	if value == 1 {
-		return true
-	}
-	return false
 }
 
 func redisSET(conn ResourceConn, key string, value string) {
