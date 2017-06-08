@@ -64,6 +64,9 @@ type URLQueueLocal struct {
 	lock *sync.Mutex
 }
 
+func NewURLQueueLocal() *URLQueueLocal {
+	return &URLQueueLocal{list.New(), new(sync.Mutex)}
+}
 func (q *URLQueueLocal) enqueue(r *URLWrapper) {
 	defer q.lock.Unlock()
 	q.lock.Lock()
@@ -87,6 +90,10 @@ func (q *URLQueueLocal) isEmpty() bool {
 
 type URLQueueDistributed struct {
 	name string
+}
+
+func NewURLQueueDistributed(name string) *URLQueueDistributed {
+	return &URLQueueDistributed{name}
 }
 
 // URL Messaging Queue across internet

@@ -36,6 +36,10 @@ type DuplicateURLFilterLocal struct {
 	urlSet map[string]int
 }
 
+func NewDuplicateURLFilterLocal() *DuplicateURLFilterLocal {
+	return &DuplicateURLFilterLocal{make(map[string]int)}
+}
+
 func (d *DuplicateURLFilterLocal) isDuplicate(rawurl string) bool {
 	_, urlfp := hostAndFingerPrint(rawurl)
 
@@ -57,6 +61,10 @@ func (d *DuplicateURLFilterLocal) removeURL(rawurl string) {
 
 type DuplicateURLFilterDistribute struct {
 	defaultKey string
+}
+
+func NewDuplicateURLFilterDistribute(defaultKey string) *DuplicateURLFilterDistribute {
+	return &DuplicateURLFilterDistribute{defaultKey}
 }
 
 func (d *DuplicateURLFilterDistribute) isDuplicate(rawurl string) bool {

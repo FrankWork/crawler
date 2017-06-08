@@ -1,12 +1,10 @@
 package main
 
 import (
-	"container/list"
 	"fmt"
 	"log"
 	"os"
 	"path"
-	"sync"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -60,28 +58,33 @@ func (e *Engine) Init() {
 	cwd := getExecutablePath()
 	var err error
 
-	if _, err = toml.DecodeFile(path.Join(cwd, "config.toml"), &e.cfg); err != nil {
+	cfg := &e.cfg
+	auth := &e.auth
+
+	if _, err = toml.DecodeFile(path.Join(cwd, "config.toml"), cfg); err != nil {
 		log.Println("toml.DecodeFile failed")
 		log.Printf("toml file path: %s\n", path.Join(cwd, "config.toml"))
 		panic(err)
 	}
 	fmt.Println("decode config.toml")
 
-	if _, err = toml.DecodeFile(path.Join(cwd, "auth.toml"), &e.auth); err != nil {
+	if _, err = toml.DecodeFile(path.Join(cwd, "auth.toml"), auth); err != nil {
 		log.Println("toml.DecodeFile failed")
 		log.Printf("toml file path: %s\n", path.Join(cwd, "auth.toml"))
 		panic(err)
 	}
 
-	if e.cfg.Distributed {
+	if cfg.Distributed {
 		fmt.Println("Distribute")
-		e.dupFilter = &DuplicateURLFilterDistribute{"defaultKey"}
-		e.urlQueue = &URLQueueDistributed{"urlQueue"}
+		e.dupFilter = NewDuplicateURLFilterDistribute("defaultKey")
+		e.urlQueue = NewURLQueueDistributed("urlQueue")
 	} else {
 		fmt.Println("Local")
-		e.dupFilter = &DuplicateURLFilterLocal{make(map[string]int)}
-		e.urlQueue = &URLQueueLocal{list.New(), new(sync.Mutex)}
+		e.dupFilter = NewDuplicateURLFilterLocal()
+		e.urlQueue = NewURLQueueLocal()
 	}
-	e.redisPool = NewRedisPool()
+	e.redisPool = NewRedisPool(auth.RedisHost, auth.RedisAuth, auth.RedisDb,
+		cfg.RedisPoolCapacity, cfg.RedisPoolMaxCapacity,
+		cfg.RedisPoolIdleTimeout.Duration)
 
 }

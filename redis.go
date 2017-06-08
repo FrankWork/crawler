@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 
+	"time"
+
 	"github.com/garyburd/redigo/redis"
 	"github.com/youtube/vitess/go/pools"
 )
@@ -18,34 +20,37 @@ func (r ResourceConn) Close() {
 	r.Conn.Close()
 }
 
-func redisConnFactory(pools.Resource, error) {
-	var conn redis.Conn
-	var err error
-
-	dbOpt := redis.DialDatabase(auth.RedisDb)
-	if auth.RedisAuth == "" {
-		conn, err = redis.Dial("tcp", auth.RedisHost, dbOpt)
-	} else {
-		authOpt := redis.DialPassword(auth.RedisAuth)
-		conn, err = redis.Dial("tcp", auth.RedisHost, authOpt, dbOpt)
-	}
-
-	return ResourceConn{conn}, err
+// RedisClient :
+type RedisClient struct {
+	pool *pools.ResourcePool
 }
 
-func NewRedisPool() *pools.ResourcePool {
+func (rc *RedisClient) Init(host, auth string, db, cap, maxCap int, timeout time.Duration) {
 	// Vitess pooling
-	pool := pools.NewResourcePool(
-		redisConnFactory,
-		cfg.RedisPoolCapacity,
-		cfg.RedisPoolMaxCapacity,
-		cfg.RedisPoolIdleTimeout.Duration)
-	return pool
+	factory := func(pools.Resource, error) {
+		var conn redis.Conn
+		var err error
+
+		dbOpt := redis.DialDatabase(db)
+		if auth.RedisAuth == "" {
+			conn, err = redis.Dial("tcp", host, dbOpt)
+		} else {
+			authOpt := redis.DialPassword(auth)
+			conn, err = redis.Dial("tcp", host, authOpt, dbOpt)
+		}
+
+		return ResourceConn{conn}, err
+	} // factory
+	rc.pool = pools.NewResourcePool(factory, cap, maxCap, timeout)
 }
 
-func redisPoolConnect() (ResourceConn, pools.Resource) {
+func (rc *RedisClient) Close() {
+	rc.pool.Close()
+}
+
+func (rc *RedisClient) Connect() (ResourceConn, pools.Resource) {
 	ctx := context.TODO()
-	resource, err := RedisResourcePool.Get(ctx)
+	resource, err := rc.pool.Get(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -53,27 +58,35 @@ func redisPoolConnect() (ResourceConn, pools.Resource) {
 	return conn, resource
 }
 
-func redisSET(conn ResourceConn, key string, value string) {
-	ok, err := conn.Do("set", key, value)
+func (rc *RedisClient) Set(key string, value string) {
+	conn, resource := rc.Connect()
+	defer rc.pool.Put(resource)
+
+	ok, err := conn.Do("SET", key, value)
 	if err != nil {
-		log.Println("redis set failed: ", err)
+		log.Println("redis SET failed: ", err)
 	} else {
-		log.Printf("redis set key: %v value: %v \n", key, value)
+		log.Printf("redis SET key: %v value: %v \n", key, value)
 		log.Println(ok)
 	}
 }
 
-func redisGET(conn ResourceConn, key string) {
-	value, err := redis.String(conn.Do("Get", key))
-	if err != nil {
-		log.Println("redis get failed: ", err)
-	} else {
-		log.Printf("redis get key: %v value: %v \n", key, value)
-	}
+func (rc *RedisClient) Get(key string) {
+	conn, resource := rc.Connect()
+	defer rc.pool.Put(resource)
 
+	value, err := redis.String(conn.Do("GET", key))
+	if err != nil {
+		log.Println("redis GET failed: ", err)
+	} else {
+		log.Printf("redis GET key: %v value: %v \n", key, value)
+	}
 }
 
-func redisSISMember(conn ResourceConn, key string, member string) bool {
+func (rc *RedisClient) SIsMember(key string, member string) bool {
+	conn, resource := rc.Connect()
+	defer rc.pool.Put(resource)
+
 	value, err := redis.Int(conn.Do("SISMEMBER", key, member))
 	if err != nil {
 		log.Printf("key: %v member: %v", key, member)
@@ -84,11 +97,13 @@ func redisSISMember(conn ResourceConn, key string, member string) bool {
 		// `member` is a member of `key`
 		return true
 	}
-
 	return false
 }
 
-func redisSADD(conn ResourceConn, key string, member string) bool {
+func (rc *RedisClient) SAdd(key string, member string) bool {
+	conn, resource := rc.Connect()
+	defer rc.pool.Put(resource)
+
 	value, err := redis.Int(conn.Do("SADD", key, member))
 	if err != nil {
 		log.Fatal("redis SADD failed: ", err)
@@ -98,11 +113,13 @@ func redisSADD(conn ResourceConn, key string, member string) bool {
 		// add `member` to `key` successfully
 		return true
 	}
-
 	return false
 }
 
-func redisSREM(conn ResourceConn, key string, member string) bool {
+func (rc *RedisClient) SRem(key string, member string) bool {
+	conn, resource := rc.Connect()
+	defer rc.pool.Put(resource)
+
 	value, err := redis.Int(conn.Do("SREM", key, member))
 	if err != nil {
 		log.Fatal("redis SREM failed: ", err)
@@ -116,10 +133,13 @@ func redisSREM(conn ResourceConn, key string, member string) bool {
 	return false
 }
 
-func redisDEL(conn ResourceConn, key string) bool {
-	value, err := redis.Int(conn.Do("Del", key))
+func (rc *RedisClient) Del(key string) bool {
+	conn, resource := rc.Connect()
+	defer rc.pool.Put(resource)
+
+	value, err := redis.Int(conn.Do("DEL", key))
 	if err != nil {
-		log.Fatal("redis SREM failed: ", err)
+		log.Fatal("redis DEL failed: ", err)
 	}
 
 	if value == 1 {
@@ -130,7 +150,10 @@ func redisDEL(conn ResourceConn, key string) bool {
 	return false
 }
 
-func redisLPUSH(conn ResourceConn, key string, value string) bool {
+func (rc *RedisClient) LPush(key string, value string) bool {
+	conn, resource := rc.Connect()
+	defer rc.pool.Put(resource)
+
 	ret, err := redis.Int(conn.Do("LPUSH", key, value))
 	if err != nil {
 		log.Fatal("redis LPUSH failed: ", err)
@@ -144,7 +167,10 @@ func redisLPUSH(conn ResourceConn, key string, value string) bool {
 	return false
 }
 
-func redisRPOP(conn ResourceConn, key string) string {
+func (rc *RedisClient) RPop(key string) string {
+	conn, resource := rc.Connect()
+	defer rc.pool.Put(resource)
+
 	ret, err := redis.String(conn.Do("RPOP", key))
 	if err != nil {
 		log.Fatal("redis RPOP failed: ", err)
@@ -154,7 +180,10 @@ func redisRPOP(conn ResourceConn, key string) string {
 	return ret
 }
 
-func redisLLen(conn ResourceConn, key string) int {
+func (rc *RedisClient) LLen(key string) int {
+	conn, resource := rc.Connect()
+	defer rc.pool.Put(resource)
+
 	ret, err := redis.Int(conn.Do("LLen", key))
 	if err != nil {
 		log.Fatal("redis LLen failed: ", err)
