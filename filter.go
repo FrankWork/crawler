@@ -91,15 +91,3 @@ func (d *DuplicateURLFilterDistribute) removeURL(rawurl string) {
 	}
 	redisSREM(conn, host, urlfp)
 }
-
-var (
-	dupFilter DuplicateURLFilter
-)
-
-func init() {
-	if cfg.Distributed {
-		dupFilter = &DuplicateURLFilterDistribute{"defaultKey"}
-	} else {
-		dupFilter = &DuplicateURLFilterLocal{make(map[string]int)}
-	}
-}

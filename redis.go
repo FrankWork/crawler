@@ -18,31 +18,29 @@ func (r ResourceConn) Close() {
 	r.Conn.Close()
 }
 
-var RedisResourcePool *pools.ResourcePool
+func redisConnFactory(pools.Resource, error) {
+	var conn redis.Conn
+	var err error
 
-func init() {
-	// Vitess pooling
-	factory := func() (pools.Resource, error) {
-		var conn redis.Conn
-		var err error
-
-		dbOpt := redis.DialDatabase(auth.RedisDb)
-		if auth.RedisAuth == "" {
-			conn, err = redis.Dial("tcp", auth.RedisHost, dbOpt)
-		} else {
-			authOpt := redis.DialPassword(auth.RedisAuth)
-			conn, err = redis.Dial("tcp", auth.RedisHost, authOpt, dbOpt)
-		}
-
-		return ResourceConn{conn}, err
+	dbOpt := redis.DialDatabase(auth.RedisDb)
+	if auth.RedisAuth == "" {
+		conn, err = redis.Dial("tcp", auth.RedisHost, dbOpt)
+	} else {
+		authOpt := redis.DialPassword(auth.RedisAuth)
+		conn, err = redis.Dial("tcp", auth.RedisHost, authOpt, dbOpt)
 	}
 
-	RedisResourcePool = pools.NewResourcePool(
-		factory,
+	return ResourceConn{conn}, err
+}
+
+func NewRedisPool() *pools.ResourcePool {
+	// Vitess pooling
+	pool := pools.NewResourcePool(
+		redisConnFactory,
 		cfg.RedisPoolCapacity,
 		cfg.RedisPoolMaxCapacity,
 		cfg.RedisPoolIdleTimeout.Duration)
-
+	return pool
 }
 
 func redisPoolConnect() (ResourceConn, pools.Resource) {

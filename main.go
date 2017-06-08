@@ -3,71 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"path"
 	"runtime"
 	"sync"
 	"time"
-
-	"github.com/BurntSushi/toml"
 )
-
-type Auth struct {
-	RedisHost string
-	RedisDb   int
-	RedisAuth string
-}
-
-type Config struct {
-	StartURLs            []string
-	Domains              []string
-	MaxDepth             int
-	Distributed          bool
-	RedisPoolCapacity    int
-	RedisPoolMaxCapacity int
-	RedisPoolIdleTimeout Duration
-}
-type Duration struct {
-	time.Duration //anonymous field
-}
-
-func (d *Duration) UnmarshalText(text []byte) error {
-	var err error
-	d.Duration, err = time.ParseDuration(string(text))
-	return err
-}
-
-var (
-	cfg  Config
-	auth Auth
-)
-
-func getExecutablePath() string {
-	ex, err := os.Executable()
-	if err != nil {
-		log.Println("getExecutablePath failed")
-		panic(err)
-	}
-	return path.Dir(ex)
-}
-
-func init() {
-	// parse config and auth toml file
-	cwd := getExecutablePath()
-
-	var err error
-	if _, err = toml.DecodeFile(path.Join(cwd, "config.toml"), &cfg); err != nil {
-		log.Println("toml.DecodeFile failed")
-		log.Printf("toml file path: %s\n", path.Join(cwd, "config.toml"))
-		panic(err)
-	}
-
-	if _, err = toml.DecodeFile(path.Join(cwd, "auth.toml"), &auth); err != nil {
-		log.Println("toml.DecodeFile failed")
-		log.Printf("toml file path: %s\n", path.Join(cwd, "auth.toml"))
-		panic(err)
-	}
-}
 
 func parseDoc(wg *sync.WaitGroup, uw *URLWrapper, maxDepth int) {
 	if wg != nil {

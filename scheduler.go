@@ -114,15 +114,3 @@ func (q *URLQueueDistributed) isEmpty() bool {
 	n := redisLLen(conn, q.name)
 	return n == 0
 }
-
-var (
-	urlQueue Queue
-)
-
-func init() {
-	if cfg.Distributed {
-		urlQueue = &URLQueueDistributed{"urlQueue"}
-	} else {
-		urlQueue = &URLQueueLocal{list.New(), new(sync.Mutex)}
-	}
-}
