@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"log"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -44,27 +42,21 @@ func NewConfig(configPath string) *Config {
 	return &cfg
 }
 
-// FIXME
-func parseDoc(url *URLWrapper) {
+// parseDoc download and parse a document
+func parseDoc(url *URLWrapper) (links []string) {
 	rawurl := url.RawURL
-	doc := request(rawurl)
+	doc := Request(rawurl)
 	// fmt.Print(doc.Html())
 	if doc == nil {
 		return
 	}
-	fmt.Printf("%d %s\n", url.Depth, getTitle(doc))
+	// fmt.Printf("%d %s\n", url.Depth, getTitle(doc))
 
-	urlCount := getLinks(doc)
-	if len(urlCount) == 0 {
-		log.Printf("no links: %s\n", url)
-	}
-
-	for newurl := range urlCount {
-		// fmt.Println(newurl)
-		newuw := NewURLWrapper(newurl, uw.Depth+1)
-		// FIXME: need an urlQueue across the function
-		urlQueue.enqueue(newuw)
-	}
+	links = GetAllLinks(doc)
+	// if len(links) == 0 {
+	// 	log.Printf("no links: %s\n", url)
+	// }
+	return
 }
 
 func main() {

@@ -36,17 +36,28 @@ func (e *Engine) Close() {
 	e.redis.Close()
 }
 
-// parserWrapper wait goroutine to stop
-// and decides whether to continue based on depth
-// FIXME
-func parserWrapper(wg *sync.WaitGroup, url *URLWrapper, maxDepth int) {
+// parse a document
+func (e *Engine) parse(wg *sync.WaitGroup, url *URLWrapper, maxDepth int,
+	parser func(*URLWrapper) []string) {
 	if wg != nil {
 		defer wg.Done()
 	}
 
-	if url.Depth+1 > maxDepth {
+	if url.Depth > maxDepth {
 		return
 	}
+
+	if !e.dupFilter.IsDuplicate(url.RawURL) {
+		links := parser(url)
+		e.dupFilter.AddURL(url.RawURL)
+
+		for _, rawurl := range links {
+			newurl := NewURLWrapper(rawurl, url.Depth+1)
+			e.urlQueue.Enqueue(newurl)
+		}
+
+	}
+
 }
 
 // Start the engine FIXME: parser TODO:storage
