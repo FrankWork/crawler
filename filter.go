@@ -2,92 +2,103 @@ package main
 
 import (
 	"crypto/sha1"
-	"fmt"
+	"encoding/hex"
 	"log"
 	"net/url"
+	"sync"
 )
 
-func fingerPrint(str string) string {
+// fingerPrint encode the src string using sha1 and hex
+func fingerPrint(src string) string {
 	hash := sha1.New()
-	hash.Write([]byte(str))
-	bytes := hash.Sum(nil)
-
-	return fmt.Sprintf("%x", bytes)
+	hash.Write([]byte(src))
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
+// hostAndFingerPrint get hostname and finger print from the raw url
 func hostAndFingerPrint(rawURL string) (string, string) {
 	urlStrct, err := url.Parse(rawURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	urlfb := fingerPrint(rawURL)
+	fingerPrint := fingerPrint(rawURL)
 
-	return urlStrct.Host, urlfb
+	return urlStrct.Host, fingerPrint
 }
 
-type DuplicateURLFilter interface {
-	isDuplicate(rawurl string) bool
-	addURL(rawurl string)
-	removeURL(rawurl string)
+// DupFilter interface to filter duplicate url
+type DupFilter interface {
+	IsDuplicate(rawurl string) bool
+	AddURL(rawurl string)
+	RemoveURL(rawurl string)
 }
 
-type DuplicateURLFilterLocal struct {
+// DupURLFilter implement DupFilter interface based on map
+// map is not concurrent safe, sync.Mutex
+type DupURLFilter struct {
 	urlSet map[string]int
+	lock   *sync.Mutex // make the map concurrent safe
 }
 
-func NewDuplicateURLFilterLocal() *DuplicateURLFilterLocal {
-	return &DuplicateURLFilterLocal{make(map[string]int)}
+// NewDupURLFilter is constructor of DupURLFilter struct
+func NewDupURLFilter() *DupURLFilter {
+	return &DupURLFilter{make(map[string]int), new(sync.Mutex)}
 }
 
-func (d *DuplicateURLFilterLocal) isDuplicate(rawurl string) bool {
-	_, urlfp := hostAndFingerPrint(rawurl)
+// IsDuplicate interface of DupURLFilter
+func (d *DupURLFilter) IsDuplicate(rawurl string) bool {
+	urlfp := fingerPrint(rawurl)
 
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	if d.urlSet[urlfp] == 0 {
 		return false
 	}
 	return true
 }
 
-func (d *DuplicateURLFilterLocal) addURL(rawurl string) {
-	_, urlfp := hostAndFingerPrint(rawurl)
+// AddURL interface of DupURLFilter
+func (d *DupURLFilter) AddURL(rawurl string) {
+	urlfp := fingerPrint(rawurl)
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	d.urlSet[urlfp]++
 }
 
-func (d *DuplicateURLFilterLocal) removeURL(rawurl string) {
-	_, urlfp := hostAndFingerPrint(rawurl)
+// RemoveURL interface of DupURLFilter
+func (d *DupURLFilter) RemoveURL(rawurl string) {
+	urlfp := fingerPrint(rawurl)
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	d.urlSet[urlfp] = 0
 }
 
-type DuplicateURLFilterDistribute struct {
-	defaultKey string
-	rc         *RedisClient
+// DupURLFilterRedis implement DupFilter interface based on redis
+type DupURLFilterRedis struct {
+	name  string // name of the redis set
+	redis *RedisClient
 }
 
-func NewDuplicateURLFilterDistribute(defaultKey string, rc *RedisClient) *DuplicateURLFilterDistribute {
-	return &DuplicateURLFilterDistribute{defaultKey, rc}
+// NewDupURLFilterRedis is constrctor of DupURLFilterRedis struct
+func NewDupURLFilterRedis(name string, redis *RedisClient) *DupURLFilterRedis {
+	return &DupURLFilterRedis{name, redis}
 }
 
-func (d *DuplicateURLFilterDistribute) isDuplicate(rawurl string) bool {
-	host, urlfp := hostAndFingerPrint(rawurl)
-	if d.defaultKey != "" {
-		host = d.defaultKey
-	}
-	return d.rc.SIsMember(host, urlfp)
+// IsDuplicate interface of DupURLFilter
+func (d *DupURLFilterRedis) IsDuplicate(rawurl string) bool {
+	urlfp := fingerPrint(rawurl)
+	return d.redis.SIsMember(d.name, urlfp)
 }
 
-func (d *DuplicateURLFilterDistribute) addURL(rawurl string) {
-	host, urlfp := hostAndFingerPrint(rawurl)
-	if d.defaultKey != "" {
-		host = d.defaultKey
-	}
-	d.rc.SAdd(host, urlfp)
+// AddURL interface of DupURLFilter
+func (d *DupURLFilterRedis) AddURL(rawurl string) {
+	urlfp := fingerPrint(rawurl)
+	d.redis.SAdd(d.name, urlfp)
 }
 
-func (d *DuplicateURLFilterDistribute) removeURL(rawurl string) {
-	host, urlfp := hostAndFingerPrint(rawurl)
-	if d.defaultKey != "" {
-		host = d.defaultKey
-	}
-	d.rc.SRem(host, urlfp)
+// RemoveURL interface of DupURLFilter
+func (d *DupURLFilterRedis) RemoveURL(rawurl string) {
+	urlfp := fingerPrint(rawurl)
+	d.redis.SRem(d.name, urlfp)
 }

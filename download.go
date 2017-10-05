@@ -1,12 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
-
-	"bytes"
 
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html/charset"
@@ -35,8 +34,8 @@ func convertEncoding(encoding string, bodyReader io.Reader) []byte {
 	return bodyBytes
 }
 
-func request(uw *URLWrapper) *goquery.Document {
-	rawurl := uw.RawURL
+// Request download the doc based on the rawurl
+func Request(rawurl string) *goquery.Document {
 	request, err := http.NewRequest("GET", rawurl, nil)
 	if err != nil {
 		log.Printf("new request failed!, %s\n", rawurl)

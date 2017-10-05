@@ -72,19 +72,20 @@ func charsetInHTML(doc *goquery.Document) string {
 	return charset
 }
 
-func getTitle(doc *goquery.Document) string {
+// GetTitle return the title of the doc
+func GetTitle(doc *goquery.Document) string {
 	return doc.Find("title").Text()
 }
 
-func getLinks(doc *goquery.Document) map[string]int {
-	urlCount := make(map[string]int)
-
-	doc.Find("a").Each(func(index int, sel *goquery.Selection) {
+// GetAllLinks return all links in the doc
+func GetAllLinks(doc *goquery.Document) (links []string) {
+	var parser = func(index int, sel *goquery.Selection) {
 		rawurl, exists := sel.Attr("href")
 		if !exists {
 			return
 		}
 
+		// ignore url starts with "javascript", "mailto:", "tel:"
 		rawurl = strings.Trim(rawurl, " \t\n")
 		if len(rawurl) == 0 || rawurl == "#" ||
 			strings.ContainsAny(rawurl, "{}") ||
@@ -103,19 +104,10 @@ func getLinks(doc *goquery.Document) map[string]int {
 		urlPointer = doc.Url.ResolveReference(urlPointer)
 		rawurl = urlPointer.String()
 
-		domainCount := 0
-		for _, domain := range cfg.Domains {
-			if strings.Contains(rawurl, domain) {
-				domainCount++
-			}
-		}
-		if domainCount == 0 {
-			// log.Printf("out of domain: %s\n", rawurl)
-			return
-		}
+		links = append(links, rawurl)
+	}
 
-		urlCount[rawurl]++
-	})
+	doc.Find("a").Each(parser)
 
-	return urlCount
+	return
 }

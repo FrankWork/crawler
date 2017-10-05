@@ -1,111 +1,63 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"os"
-	"path"
 	"runtime"
-	"time"
-
 	"sync"
-
-	"github.com/BurntSushi/toml"
+	"time"
 )
 
-type Config struct {
-	StartURLs            []string
-	Domains              []string
-	MaxDepth             int
-	Distributed          bool
-	RedisHost            string
-	RedisDb              int
-	RedisAuth            string
-	RedisPoolCapacity    int
-	RedisPoolMaxCapacity int
-	RedisPoolIdleTimeout Duration
-}
-type Duration struct {
-	time.Duration //anonymous field
-}
-
-func (d *Duration) UnmarshalText(text []byte) error {
-	var err error
-	d.Duration, err = time.ParseDuration(string(text))
-	return err
-}
-
-func getExecutablePath() string {
-	ex, err := os.Executable()
-	if err != nil {
-		log.Println("getExecutablePath failed")
-		panic(err)
-	}
-	return path.Dir(ex)
-}
-
+// Engine struct contrl the crawler behavior
 type Engine struct {
 	cfg       *Config
+	redis     *RedisClient
 	urlQueue  Queue
-	dupFilter DuplicateURLFilter
-	rc        *RedisClient
+	dupFilter DupFilter
 	wg        *sync.WaitGroup
 }
 
-func NewEngine() *Engine {
-	// parse config and auth toml file
-	cwd := getExecutablePath()
-
-	var err error
-	var cfg Config
-
-	if _, err = toml.DecodeFile(path.Join(cwd, "config.toml"), &cfg); err != nil {
-		log.Println("toml.DecodeFile failed")
-		log.Printf("toml file path: %s\n", path.Join(cwd, "config.toml"))
-		panic(err)
-	}
-	fmt.Println("decode config.toml")
-
-	var dupFilter DuplicateURLFilter
+// NewEngine is constrctor of Engine struct
+func NewEngine(cfg *Config, redis *RedisClient) *Engine {
+	var dupFilter DupFilter
 	var urlQueue Queue
-	var rc *RedisClient
-	rc = nil
 
 	if cfg.Distributed {
-		fmt.Println("Distribute")
-		rc := NewRedisClient(cfg.RedisHost, cfg.RedisAuth, cfg.RedisDb,
-			cfg.RedisPoolCapacity, cfg.RedisPoolMaxCapacity,
-			cfg.RedisPoolIdleTimeout.Duration)
-		dupFilter = NewDuplicateURLFilterDistribute("defaultKey", rc)
-		urlQueue = NewURLQueueDistributed("urlQueue", rc)
+		urlQueue = NewURLQueueRedis(cfg.Name+"URLQueue", redis)
+		dupFilter = NewDupURLFilterRedis(cfg.Name+"URLSet", redis)
 	} else {
-		fmt.Println("Local")
-		dupFilter = NewDuplicateURLFilterLocal()
-		urlQueue = NewURLQueueLocal()
+		urlQueue = NewURLQueue()
+		dupFilter = NewDupURLFilter()
 	}
-	return &Engine{&cfg, urlQueue, dupFilter, rc, new(sync.WaitGroup)}
+	return &Engine{cfg, redis, urlQueue, dupFilter, new(sync.WaitGroup)}
 }
 
-func (e *Engine) GetConfig() *Config {
-	return e.cfg
-}
-
+// Close the engine and redis client
 func (e *Engine) Close() {
-	if e.rc != nil {
-		e.rc.Close()
+	e.redis.Close()
+}
+
+// parserWrapper wait goroutine to stop
+// and decides whether to continue based on depth
+// FIXME
+func parserWrapper(wg *sync.WaitGroup, url *URLWrapper, maxDepth int) {
+	if wg != nil {
+		defer wg.Done()
+	}
+
+	if url.Depth+1 > maxDepth {
+		return
 	}
 }
 
+// Start the engine FIXME: parser TODO:storage
 func (e *Engine) Start(parser func(*sync.WaitGroup, *URLWrapper, int)) {
-	cfg := e.GetConfig()
-
 	// start requests
 	depth := 0
-	for _, rawurl := range cfg.StartURLs {
-		if e.dupFilter.isDuplicate(rawurl) {
-			uw := NewURLWrapper(rawurl, depth)
+	for _, rawurl := range e.cfg.StartURLs {
+		if e.dupFilter.IsDuplicate(rawurl) {
+			url := NewURLWrapper(rawurl, depth)
 			// wg is nil: block here until the parser is finished
-			parser(nil, uw, cfg.MaxDepth)
+			parser(nil, url, e.cfg.MaxDepth)
 		}
 	}
 
@@ -113,18 +65,18 @@ func (e *Engine) Start(parser func(*sync.WaitGroup, *URLWrapper, int)) {
 	initNumGortn := runtime.NumGoroutine()
 	log.Printf("init NumGoroutine: %d\n", initNumGortn)
 
-	for runtime.NumGoroutine() > initNumGortn || !e.urlQueue.isEmpty() {
-		if e.urlQueue.isEmpty() {
+	for runtime.NumGoroutine() > initNumGortn || !e.urlQueue.IsEmpty() {
+		if e.urlQueue.IsEmpty() {
 			time.Sleep(time.Second)
-		}
-		uw := e.urlQueue.dequeue()
-		if uw != nil && !e.dupFilter.isDuplicate(uw.RawURL) {
-			e.dupFilter.addURL(uw.RawURL)
-			e.wg.Add(1)
-			go parseDoc(e.wg, uw, e.cfg.MaxDepth)
+		} else {
+			url := e.urlQueue.Dequeue()
+			if url != nil && !e.dupFilter.IsDuplicate(url.RawURL) {
+				e.dupFilter.AddURL(url.RawURL)
+				e.wg.Add(1)
+				go parseDoc(e.wg, url, e.cfg.MaxDepth)
+			}
 		}
 	}
-
 	e.wg.Wait()
-	// storage()
+	// TODO: storage()
 }

@@ -9,21 +9,23 @@ import (
 	"sync"
 )
 
-// URLWrapper: store the parsed url and it's depth
+// URLWrapper store the parsed url and it's depth
 type URLWrapper struct {
 	RawURL string
 	Depth  int
 }
 
+// NewURLWrapper new a URLWrapper object
 func NewURLWrapper(rawurl string, depth int) *URLWrapper {
 	return &URLWrapper{rawurl, depth}
 }
 
-func (r *URLWrapper) print() {
-	fmt.Println(r.RawURL, r.Depth)
+// String return depth and url of URLWrapper as a string
+func (r *URLWrapper) String() string {
+	return fmt.Sprintf("%d: %s", r.Depth, r.RawURL)
 }
 
-// Serialize URLWrapper to store into a database or transport across internet
+// serialize URLWrapper to store into a database or transport across internet
 func serialize(uw *URLWrapper) string {
 	var b = new(bytes.Buffer)
 	e := gob.NewEncoder(b)
@@ -35,6 +37,7 @@ func serialize(uw *URLWrapper) string {
 	return hex.EncodeToString(b.Bytes())
 }
 
+// deserialize an URLWrapper object from hex string
 func deserialize(hexStr string) *URLWrapper {
 	byteArr, err := hex.DecodeString(hexStr)
 	if err != nil {
@@ -51,28 +54,34 @@ func deserialize(hexStr string) *URLWrapper {
 	return uw
 }
 
+// Queue interface to store URLWrapper
 type Queue interface {
-	enqueue(uw *URLWrapper)
-	dequeue() *URLWrapper
-	isEmpty() bool
+	Enqueue(uw *URLWrapper)
+	Dequeue() *URLWrapper
+	IsEmpty() bool
 }
 
-// URLQueueLocal : Local URL Messaging Queue
-// list.List is not concurrent safe
-type URLQueueLocal struct {
+// URLQueue : Local URL Messaging Queue
+// list.List is not concurrent safe, sync.Mutex
+type URLQueue struct {
 	List *list.List
-	lock *sync.Mutex
+	lock *sync.Mutex // make the list concurrent safe
 }
 
-func NewURLQueueLocal() *URLQueueLocal {
-	return &URLQueueLocal{list.New(), new(sync.Mutex)}
+// NewURLQueue return an URLQueue object
+func NewURLQueue() *URLQueue {
+	return &URLQueue{list.New(), new(sync.Mutex)}
 }
-func (q *URLQueueLocal) enqueue(r *URLWrapper) {
+
+// Enqueue an URLWrapper object
+func (q *URLQueue) Enqueue(r *URLWrapper) {
 	defer q.lock.Unlock()
 	q.lock.Lock()
 	q.List.PushBack(r)
 }
-func (q *URLQueueLocal) dequeue() *URLWrapper {
+
+// Dequeue an URLWrapper object
+func (q *URLQueue) Dequeue() *URLWrapper {
 	defer q.lock.Unlock()
 	q.lock.Lock()
 	if q.List.Len() > 0 {
@@ -82,29 +91,33 @@ func (q *URLQueueLocal) dequeue() *URLWrapper {
 	}
 	return nil
 }
-func (q *URLQueueLocal) isEmpty() bool {
+
+// IsEmpty return a bool
+func (q *URLQueue) IsEmpty() bool {
 	defer q.lock.Unlock()
 	q.lock.Lock()
 	return q.List.Len() == 0
 }
 
-type URLQueueDistributed struct {
-	name string
+// URLQueueRedis implement an Queue interface based on redis
+type URLQueueRedis struct {
+	name string // name of the queue, used as a key in redis
 	rc   *RedisClient
 }
 
-func NewURLQueueDistributed(name string, rc *RedisClient) *URLQueueDistributed {
-	return &URLQueueDistributed{name, rc}
+// NewURLQueueRedis new an queue object, name is used as a key in redis
+func NewURLQueueRedis(name string, rc *RedisClient) *URLQueueRedis {
+	return &URLQueueRedis{name, rc}
 }
 
-// URL Messaging Queue across internet
-func (q *URLQueueDistributed) enqueue(uw *URLWrapper) {
+// Enqueue an URLWrapper
+func (q *URLQueueRedis) Enqueue(uw *URLWrapper) {
 	uwStr := serialize(uw)
 	q.rc.LPush(q.name, uwStr)
 }
 
-// FIXME
-func (q *URLQueueDistributed) dequeue() *URLWrapper {
+// Dequeue an URLWrapper
+func (q *URLQueueRedis) Dequeue() *URLWrapper {
 	uwStr := q.rc.RPop(q.name)
 	if uwStr != "" {
 		return deserialize(uwStr)
@@ -112,8 +125,8 @@ func (q *URLQueueDistributed) dequeue() *URLWrapper {
 	return nil
 }
 
-// FIXME
-func (q *URLQueueDistributed) isEmpty() bool {
+// IsEmpty returns a bool
+func (q *URLQueueRedis) IsEmpty() bool {
 	n := q.rc.LLen(q.name)
 	return n == 0
 }

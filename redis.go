@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-
 	"time"
 
 	"github.com/garyburd/redigo/redis"
@@ -20,35 +19,38 @@ func (r ResourceConn) Close() {
 	r.Conn.Close()
 }
 
-// RedisClient :
+// RedisClient is a Vitess connection pool
 type RedisClient struct {
 	pool *pools.ResourcePool
 }
 
-func NewRedisClient(host, auth string, db, cap, maxCap int, timeout time.Duration) *RedisClient {
+// NewRedisClient return a RedisClient object
+func NewRedisClient(host, auth string, db, cap, maxCap int,
+	timeout time.Duration) *RedisClient {
 	// Vitess pooling
-	factory := func(pools.Resource, error) {
+	factory := func() (pools.Resource, error) {
 		var conn redis.Conn
 		var err error
 
 		dbOpt := redis.DialDatabase(db)
-		if auth.RedisAuth == "" {
+		if auth == "" {
 			conn, err = redis.Dial("tcp", host, dbOpt)
 		} else {
 			authOpt := redis.DialPassword(auth)
 			conn, err = redis.Dial("tcp", host, authOpt, dbOpt)
 		}
-
 		return ResourceConn{conn}, err
 	} // factory
 	pool := pools.NewResourcePool(factory, cap, maxCap, timeout)
-	return RedisClient{pool}
+	return &RedisClient{pool}
 }
 
+// Close the connection pools of RedisClient
 func (rc *RedisClient) Close() {
 	rc.pool.Close()
 }
 
+// Connect get a connection from the pool
 func (rc *RedisClient) Connect() (ResourceConn, pools.Resource) {
 	ctx := context.TODO()
 	resource, err := rc.pool.Get(ctx)

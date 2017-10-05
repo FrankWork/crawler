@@ -1,3 +1,47 @@
+# code structure
+
+- redis.go
+- scheduler.go
+- filter.go
+- query.go
+- download.go
+
+## redis.go
+
+- ResourceConn
+- RedisClient
+- NewRedisClient
+
+
+## scheduler.go
+
+- URLWrapper
+- NewURLWrapper
+- Queue
+- URLQueue
+- NewURLQueue
+- URLQueueRedis
+- NewURLQueueRedis
+
+## filter.go
+
+- DupFilter
+- DupURLFilter
+- NewDupURLFilter
+- DupURLFilterRedis
+- NewDupURLFilterRedis
+
+## query.go
+
+- GetTitle
+- GetAllLinks
+
+## download.go
+
+- Request
+
+
+
 # benchmark
 
 url :"http://open.163.com"
