@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"os"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -52,7 +51,7 @@ func parseDoc(url *URLWrapper) (links []string) {
 	if doc == nil {
 		return
 	}
-	// log.Printf("%d %s\n", url.Depth, GetTitle(doc))
+	log.Printf("%d %s\n", url.Depth, GetTitle(doc))
 
 	links = GetAllLinks(doc)
 	// if len(links) == 0 {
@@ -62,12 +61,12 @@ func parseDoc(url *URLWrapper) (links []string) {
 }
 
 func main() {
-	f, err := os.OpenFile("log.txt", os.O_RDWR|os.O_CREATE, 0666) // |os.O_APPEND
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-	log.SetOutput(f)
+	// f, err := os.OpenFile("log.txt", os.O_RDWR|os.O_CREATE, 0666) // |os.O_APPEND
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer f.Close()
+	// log.SetOutput(f)
 
 	configPath := "config.toml"
 	cfg := NewConfig(configPath)

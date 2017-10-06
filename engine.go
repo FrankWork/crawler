@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"sync"
 	"sync/atomic"
 )
 
@@ -14,7 +12,7 @@ type Engine struct {
 	dupFilter DupFilter
 	nActive   uint64 // number of active worker goroutines
 	counter   chan uint64
-	wg        *sync.WaitGroup
+	// wg        *sync.WaitGroup
 }
 
 // NewEngine is constrctor of Engine struct
@@ -30,7 +28,7 @@ func NewEngine(cfg *Config, redis *RedisClient) *Engine {
 		dupFilter = NewDupURLFilter()
 	}
 	return &Engine{cfg, redis, urlQueue, dupFilter,
-		0, make(chan uint64), new(sync.WaitGroup)}
+		0, make(chan uint64)}
 }
 
 // Close the engine and redis client
@@ -40,17 +38,13 @@ func (e *Engine) Close() {
 
 // parse a document
 func (e *Engine) parse(url *URLWrapper, parser func(*URLWrapper) []string) {
-	defer e.wg.Done()
-
 	if url.Depth > e.cfg.MaxDepth {
 		return
 	}
 
 	if !e.dupFilter.IsDuplicate(url.RawURL) {
 		atomic.AddUint64(&e.nActive, 1)
-		fmt.Printf("%d add\n", e.nActive)
 		defer func() {
-			fmt.Printf("%d sub\n", e.nActive)
 			atomic.AddUint64(&e.nActive, ^uint64(1-1)) // nActive--
 			e.counter <- e.nActive
 		}()
@@ -64,64 +58,38 @@ func (e *Engine) parse(url *URLWrapper, parser func(*URLWrapper) []string) {
 				e.urlQueue.Enqueue(newurl)
 			}
 		}
-
-		// fmt.Printf("%d sub\n", e.nActive)
-		// atomic.AddUint64(&e.nActive, ^uint64(1-1)) // nActive--
-		// e.counter <- e.nActive
 	}
 }
 
-// Start the engine FIXME: parser TODO:storage
+// Start the engine TODO:storage
 func (e *Engine) Start(parser func(*URLWrapper) []string) {
 	// start requests
 	depth := 0
 	for _, rawurl := range e.cfg.StartURLs {
 		url := NewURLWrapper(rawurl, depth)
-		e.wg.Add(1)
 		go e.parse(url, parser)
 	}
 	// block here till the start urls are all parsed
 	for i := 0; i < len(e.cfg.StartURLs); i++ {
-		// <-e.counter
-		_, ok := <-e.counter
-		if !ok {
-			break
-		}
-		// log.Println(e.nActive, runtime.NumGoroutine())
-		if e.nActive == 0 {
-			break
-		}
+		<-e.counter
 	}
-	// e.wg.Wait()
 
+	// start a goroutine to recive message from channel e.counter
 	go func() {
-		for {
-			_, ok := <-e.counter
-			if !ok {
-				break
-			}
-			// log.Println(e.nActive, runtime.NumGoroutine())
-			if e.nActive == 0 {
-				break
-			}
+		for e.nActive != 0 {
+			<-e.counter
 		}
 	}()
 
 	for {
 		if e.urlQueue.IsEmpty() {
+			<-e.counter
 			if e.nActive == 0 {
 				break
 			}
-			_, ok := <-e.counter
-			if !ok {
-				break
-			}
-			// log.Println(e.nActive, runtime.NumGoroutine(), "empty")
-
 		} else {
 			url := e.urlQueue.Dequeue()
 			if url != nil && !e.dupFilter.IsDuplicate(url.RawURL) {
-				e.wg.Add(1)
 				// https://golang.org/doc/faq#goroutines
 				// It is practical to create hundreds of thousands of goroutines
 				go e.parse(url, parser)
