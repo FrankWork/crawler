@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html/charset"
@@ -15,8 +16,8 @@ var client *http.Client
 
 func init() {
 	client = &http.Client{
-	// CheckRedirect: redirectPolicyFunc,
-	}
+		// CheckRedirect: redirectPolicyFunc,
+		Timeout: time.Second * 20}
 }
 
 func convertEncoding(encoding string, bodyReader io.Reader) []byte {

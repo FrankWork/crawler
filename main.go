@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+	"os"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -18,16 +20,16 @@ type Config struct {
 	RedisAuth            string
 	RedisPoolCapacity    int
 	RedisPoolMaxCapacity int
-	RedisPoolIdleTimeout Duration
+	RedisPoolIdleTimeout duration
 }
 
 // Duration struct for Config struct
-type Duration struct {
+type duration struct {
 	time.Duration //anonymous field
 }
 
 // UnmarshalText method of Duration for parse text
-func (d *Duration) UnmarshalText(text []byte) error {
+func (d *duration) UnmarshalText(text []byte) error {
 	var err error
 	d.Duration, err = time.ParseDuration(string(text))
 	return err
@@ -50,7 +52,7 @@ func parseDoc(url *URLWrapper) (links []string) {
 	if doc == nil {
 		return
 	}
-	// fmt.Printf("%d %s\n", url.Depth, getTitle(doc))
+	// log.Printf("%d %s\n", url.Depth, GetTitle(doc))
 
 	links = GetAllLinks(doc)
 	// if len(links) == 0 {
@@ -60,6 +62,13 @@ func parseDoc(url *URLWrapper) (links []string) {
 }
 
 func main() {
+	f, err := os.OpenFile("log.txt", os.O_RDWR|os.O_CREATE, 0666) // |os.O_APPEND
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	log.SetOutput(f)
+
 	configPath := "config.toml"
 	cfg := NewConfig(configPath)
 
